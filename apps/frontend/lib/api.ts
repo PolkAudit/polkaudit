@@ -214,14 +214,28 @@ export async function loginWithPassword(email: string, password: string) {
 
 export async function registerAccount(email: string, password: string) {
   const base = getApiBaseUrl().replace('/api/v1', '');
-  const res = await fetch(`${base}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${base}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    throw new Error(
+      'Cannot reach API. Use https://app.polkaudit.xyz and ensure api.polkaudit.xyz is up.'
+    );
+  }
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || 'Registration failed');
+    const err = await res.json().catch(() => ({} as any));
+    const detail = err?.detail;
+    const msg =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ')
+          : detail?.msg || err?.error || 'Registration failed';
+    throw new Error(msg);
   }
   return res.json();
 }
