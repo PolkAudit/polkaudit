@@ -104,31 +104,6 @@ export async function loginWithPassword(email: string, password: string) {
   return data;
 }
 
-export async function registerAccount(email: string, password: string) {
-  let res: Response;
-  try {
-    res = await fetch(`${authApiBase()}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-  } catch {
-    throw new Error(
-      'Cannot reach API. Ensure api.polkaudit.xyz is up.'
-    );
-  }
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({} as any));
-    throw new Error(formatApiError(err, res.status));
-  }
-  const data = await res.json();
-  if (data?.project_id && typeof window !== 'undefined') {
-    localStorage.setItem(PROJECT_STORAGE_KEY, String(data.project_id));
-  }
-  if (data?.access_token) setAuthToken(data.access_token);
-  return data;
-}
-
 export type AuthUser = {
   id: number;
   email: string;

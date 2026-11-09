@@ -1,6 +1,8 @@
 # PolkAudit Console
 
-SaaS account UI for PolkAudit: signup/login, email verification, password reset, API keys, and Pilot/Pro checkout.
+SaaS account UI for PolkAudit platform admins: login, email verification, password reset, API keys, and Pilot/Pro checkout.
+
+Public sign-up is **disabled**. Create users with `POST /api/admin/users` (admin JWT).
 
 - **Prod:** `https://console.polkaudit.xyz` on **Alibaba SAS** (`polkaudit-console`, port `3001`)
 - **API:** same backend as the dashboard (`NEXT_PUBLIC_API_URL`)

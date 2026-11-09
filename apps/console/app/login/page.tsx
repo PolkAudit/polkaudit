@@ -100,10 +100,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-xs text-muted-foreground text-center">
-          No account?{' '}
-          <Link href="/signup" className="text-accent hover:underline">
-            Create one
-          </Link>
+          Console is invite-only for platform admins.
         </p>
       </Card>
     </div>

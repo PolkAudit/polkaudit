@@ -50,10 +50,7 @@ export default function LoginPage() {
         </Button>
 
         <p className="text-xs text-muted-foreground text-center">
-          No account?{' '}
-          <a href={`${consoleUrl}/signup`} className="text-accent hover:underline">
-            Create one in Console
-          </a>
+          Accounts are invite-only — use Console if you already have one.
         </p>
 
         <div className="border-t border-border pt-4 space-y-4">

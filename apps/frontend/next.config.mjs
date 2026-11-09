@@ -16,7 +16,7 @@ const nextConfig = {
     return [
       {
         source: '/signup',
-        destination: `${CONSOLE_URL}/signup`,
+        destination: `${CONSOLE_URL}/login`,
         permanent: false,
       },
       {

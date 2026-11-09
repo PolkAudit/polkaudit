@@ -82,29 +82,12 @@ async def _ensure_default_project(db: AsyncSession) -> Project:
 
 @router.post("/register", response_model=RegisterResponse)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    auth_service = AuthService(db)
-    user = await auth_service.create_user(
-        UserCreate(
-            email=body.email,
-            password=body.password,
-            role=UserRole.MEMBER,
-            is_active=True,
-        )
-    )
-    project = await _ensure_default_project(db)
-    db.add(UserProject(user_id=user.id, project_id=project.id, role="member"))
-    await db.commit()
-
-    tokens = AuthTokenService(db)
-    await tokens.send_verify_email(user)
-
-    access_token = create_access_token(
-        subject=user.email, expires_delta=timedelta(hours=24)
-    )
-    return RegisterResponse(
-        user=UserResponse.model_validate(user),
-        project_id=project.id,
-        access_token=access_token,
+    # Public self-serve signup is disabled — console is for platform admins.
+    # Create users via POST /api/admin/users (admin JWT).
+    _ = body, db
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Public registration is disabled. Contact a platform admin.",
     )
 
 
