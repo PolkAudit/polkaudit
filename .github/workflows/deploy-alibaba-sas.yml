@@ -95,12 +95,16 @@ jobs:
           SAS_USER: ${{ secrets.SAS_USER }}
           SAS_SSH_KEY: ${{ secrets.SAS_SSH_KEY }}
         run: |
+          # Trim accidental whitespace/newlines from pasted secrets
+          SAS_HOST="$(echo -n "$SAS_HOST" | tr -d '[:space:]')"
+          SAS_USER="$(echo -n "$SAS_USER" | tr -d '[:space:]')"
           for v in SAS_HOST SAS_USER SAS_SSH_KEY; do
             if [ -z "${!v}" ]; then
               echo "::error::$v secret is not set — see docs/ALIBABA_SAS_DEPLOY.md"
               exit 1
             fi
           done
+          echo "SAS_HOST length=$(echo -n "$SAS_HOST" | wc -c) SAS_USER=$SAS_USER"
 
       - uses: actions/download-artifact@v4
         with:
@@ -113,9 +117,11 @@ jobs:
           SAS_HOST: ${{ secrets.SAS_HOST }}
           SAS_PORT: ${{ secrets.SAS_PORT }}
         run: |
-          PORT="${SAS_PORT:-22}"
+          SAS_HOST="$(echo -n "$SAS_HOST" | tr -d '[:space:]')"
+          PORT="$(echo -n "${SAS_PORT:-22}" | tr -d '[:space:]')"
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$SAS_SSH_KEY" > ~/.ssh/sas_key
+          # Normalize PEM: strip CR, ensure trailing newline
+          printf '%s\n' "$SAS_SSH_KEY" | tr -d '\r' > ~/.ssh/sas_key
           chmod 600 ~/.ssh/sas_key
           ssh-keyscan -p "$PORT" -H "$SAS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
@@ -126,7 +132,9 @@ jobs:
           SAS_PORT: ${{ secrets.SAS_PORT }}
           SAS_BRANCH: ${{ secrets.SAS_BRANCH }}
         run: |
-          PORT="${SAS_PORT:-22}"
+          SAS_HOST="$(echo -n "$SAS_HOST" | tr -d '[:space:]')"
+          SAS_USER="$(echo -n "$SAS_USER" | tr -d '[:space:]')"
+          PORT="$(echo -n "${SAS_PORT:-22}" | tr -d '[:space:]')"
           BRANCH="${SAS_BRANCH:-main}"
           SSH=(ssh -i ~/.ssh/sas_key -p "$PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new)
           SCP=(scp -i ~/.ssh/sas_key -P "$PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new)
