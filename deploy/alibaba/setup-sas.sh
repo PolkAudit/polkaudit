@@ -112,14 +112,22 @@ if [[ -n "${DB_PASS:-}" ]]; then
 fi
 
 # --- Env files ---
+# Always re-own for current RUN_USER (earlier runs may have used ubuntu/root).
+fix_env_perms() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  chown root:"$RUN_USER" "$f"
+  chmod 640 "$f"
+}
+
 if [[ ! -f /etc/polkaudit/indexer.env ]]; then
   cp "$INSTALL_DIR/deploy/alibaba/indexer.env.example" /etc/polkaudit/indexer.env
   if [[ -n "$SYNC_URL" ]]; then
     sed -i "s|^DATABASE_URL=.*|DATABASE_URL=${SYNC_URL}|" /etc/polkaudit/indexer.env
   fi
-  chown root:"$RUN_USER" /etc/polkaudit/indexer.env
-  chmod 640 /etc/polkaudit/indexer.env
 fi
+fix_env_perms /etc/polkaudit/indexer.env
+fix_env_perms /etc/polkaudit/.db_pass
 
 API_KEY=""
 if [[ ! -f /etc/polkaudit/backend.env ]]; then
@@ -129,12 +137,11 @@ if [[ ! -f /etc/polkaudit/backend.env ]]; then
     sed -i "s|^DATABASE_URL=.*|DATABASE_URL=${SYNC_URL}|" /etc/polkaudit/backend.env
   fi
   sed -i "s|^API_KEY=.*|API_KEY=${API_KEY}|" /etc/polkaudit/backend.env
-  chown root:"$RUN_USER" /etc/polkaudit/backend.env
-  chmod 640 /etc/polkaudit/backend.env
   echo "Generated API_KEY (also in /etc/polkaudit/backend.env)"
 else
   API_KEY="$(grep -E '^API_KEY=' /etc/polkaudit/backend.env | cut -d= -f2- || true)"
 fi
+fix_env_perms /etc/polkaudit/backend.env
 
 if [[ ! -f /etc/polkaudit/frontend.env ]]; then
   cp "$INSTALL_DIR/deploy/alibaba/frontend.env.example" /etc/polkaudit/frontend.env
@@ -142,15 +149,13 @@ if [[ ! -f /etc/polkaudit/frontend.env ]]; then
     sed -i "s|^API_KEY=.*|API_KEY=${API_KEY}|" /etc/polkaudit/frontend.env
     sed -i "s|^NEXT_PUBLIC_API_KEY=.*|NEXT_PUBLIC_API_KEY=${API_KEY}|" /etc/polkaudit/frontend.env
   fi
-  chown root:"$RUN_USER" /etc/polkaudit/frontend.env
-  chmod 640 /etc/polkaudit/frontend.env
 fi
+fix_env_perms /etc/polkaudit/frontend.env
 
 if [[ ! -f /etc/polkaudit/landing.env ]]; then
   cp "$INSTALL_DIR/deploy/alibaba/landing.env.example" /etc/polkaudit/landing.env
-  chown root:"$RUN_USER" /etc/polkaudit/landing.env
-  chmod 640 /etc/polkaudit/landing.env
 fi
+fix_env_perms /etc/polkaudit/landing.env
 
 # --- Python venvs ---
 for APP in indexer backend; do
