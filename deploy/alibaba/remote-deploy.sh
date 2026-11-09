@@ -143,9 +143,25 @@ as_root "
 "
 
 echo "== health checks =="
-sleep 3
-curl -fsS "http://127.0.0.1:8080/health"
-echo ""
+# Backend can take a few seconds after systemctl restart; retry so CI is not flaky.
+ok=0
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -fsS --connect-timeout 2 "http://127.0.0.1:8080/health" >/dev/null; then
+    curl -fsS "http://127.0.0.1:8080/health"
+    echo ""
+    ok=1
+    break
+  fi
+  echo "backend not ready (attempt $i/10)…"
+  sleep 2
+done
+if [[ "$ok" -ne 1 ]]; then
+  echo "WARNING: backend health check failed after retries"
+  systemctl --no-pager --full status polkaudit-backend || true
+  journalctl -u polkaudit-backend -n 40 --no-pager || true
+  # Still exit non-zero so real outages fail the job
+  exit 1
+fi
 curl -fsS -o /dev/null -w "frontend:%{http_code}\n" "http://127.0.0.1:3000/" || echo "frontend: not up yet"
 curl -fsS -o /dev/null -w "console:%{http_code}\n" "http://127.0.0.1:3001/" || echo "console: not up yet"
 curl -fsS -o /dev/null -w "https_app:%{http_code}\n" --connect-timeout 5 "https://127.0.0.1/" -H "Host: app.polkaudit.xyz" -k \
