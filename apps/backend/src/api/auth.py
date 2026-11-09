@@ -9,11 +9,10 @@ from src.database import get_db
 from src.services.auth_service import AuthService
 from src.services.auth_token_service import AuthTokenService
 from src.security import create_access_token
-from src.schemas.user import UserResponse, Token, UserCreate
+from src.schemas.user import UserResponse, Token
 from src.dependencies import get_current_active_user
-from src.models.user import User, UserRole
+from src.models.user import User
 from src.models.project import Project, UserProject
-from src.models.billing import Plan, Subscription
 
 router = APIRouter()
 
@@ -45,39 +44,6 @@ class ForgotPasswordRequest(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
-
-
-async def _ensure_default_project(db: AsyncSession) -> Project:
-    result = await db.execute(
-        select(Project).where(Project.slug == "polkadot-main")
-    )
-    project = result.scalars().first()
-    if project:
-        return project
-    project = Project(
-        name="Polkadot Main",
-        slug="polkadot-main",
-        chain_id="polkadot",
-        rpc_url="wss://rpc.polkadot.io",
-        chain_type="polkadot",
-        is_public=True,
-    )
-    db.add(project)
-    await db.flush()
-
-    # Attach free plan subscription for default project
-    plan_result = await db.execute(select(Plan).where(Plan.slug == "free"))
-    plan = plan_result.scalars().first()
-    if plan:
-        db.add(
-            Subscription(
-                project_id=project.id,
-                plan_id=plan.id,
-                status="active",
-                billing_note="default shared project",
-            )
-        )
-    return project
 
 
 @router.post("/register", response_model=RegisterResponse)
