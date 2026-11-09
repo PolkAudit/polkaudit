@@ -1,0 +1,19 @@
+[Unit]
+Description=PolkAudit Frontend (Next.js dashboard)
+Documentation=https://github.com/PolkAudit/polkaudit/blob/main/docs/ALIBABA_SAS_DEPLOY.md
+After=network-online.target polkaudit-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/polkaudit/apps/frontend/.next/standalone
+EnvironmentFile=/etc/polkaudit/frontend.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

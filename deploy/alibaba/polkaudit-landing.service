@@ -1,0 +1,19 @@
+[Unit]
+Description=PolkAudit Landing (Next.js marketing site)
+Documentation=https://github.com/PolkAudit/polkaudit/blob/main/docs/ALIBABA_SAS_DEPLOY.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/polkaudit/apps/landing/.next/standalone
+EnvironmentFile=/etc/polkaudit/landing.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+MemoryMax=384M
+
+[Install]
+WantedBy=multi-user.target

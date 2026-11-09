@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# One-time bootstrap: PolkAudit API + Indexer + local PostgreSQL on Alibaba SAS (Ubuntu).
+# One-time bootstrap: full PolkAudit stack on Alibaba SAS (Ubuntu):
+#   PostgreSQL + API + Indexer + (Next.js UI installed later via GitHub Actions artifacts)
 #
 # Usage (on the SAS instance as root):
-#   sudo bash deploy/alibaba/setup-sas.sh --repo-url https://github.com/ViSa-Innovations/polkaudit.git
+#   sudo bash deploy/alibaba/setup-sas.sh --repo-url https://github.com/PolkAudit/polkaudit.git
 #   sudo bash deploy/alibaba/setup-sas.sh --skip-clone
 #
 set -euo pipefail
 
 INSTALL_DIR="${INSTALL_DIR:-/opt/polkaudit}"
-REPO_URL="${REPO_URL:-https://github.com/ViSa-Innovations/polkaudit.git}"
+REPO_URL="${REPO_URL:-https://github.com/PolkAudit/polkaudit.git}"
 SKIP_CLONE=0
 BRANCH="${BRANCH:-main}"
 DB_NAME="${DB_NAME:-polkaudit}"
@@ -49,8 +50,23 @@ apt-get install -y -qq \
   git curl nginx python3 python3-venv python3-pip \
   postgresql postgresql-contrib libpq-dev build-essential
 
-# Optional dedicated data mount point (create if missing; bind to root if no separate disk)
-mkdir -p /data/postgresql /etc/polkaudit
+# Node 20 for running Next.js standalone (builds happen in GitHub Actions)
+if ! command -v node >/dev/null || [[ "$(node -v 2>/dev/null | cut -d. -f1 | tr -d v)" -lt 20 ]]; then
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  apt-get install -y -qq nodejs
+fi
+
+# Swap helps on 2 GiB SAS when Postgres + indexer + two Next processes share RAM
+if [[ ! -f /swapfile ]]; then
+  echo "Creating 2G swapfile..."
+  fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+mkdir -p /data/postgresql /etc/polkaudit /tmp/polkaudit-artifacts
 if [[ ! -d /var/lib/postgresql ]]; then
   mkdir -p /var/lib/postgresql
 fi
@@ -93,6 +109,7 @@ if [[ ! -f /etc/polkaudit/indexer.env ]]; then
   chmod 640 /etc/polkaudit/indexer.env
 fi
 
+API_KEY=""
 if [[ ! -f /etc/polkaudit/backend.env ]]; then
   cp "$INSTALL_DIR/deploy/alibaba/backend.env.example" /etc/polkaudit/backend.env
   API_KEY="$(openssl rand -hex 32)"
@@ -103,6 +120,24 @@ if [[ ! -f /etc/polkaudit/backend.env ]]; then
   chown root:"$RUN_USER" /etc/polkaudit/backend.env
   chmod 640 /etc/polkaudit/backend.env
   echo "Generated API_KEY (also in /etc/polkaudit/backend.env)"
+else
+  API_KEY="$(grep -E '^API_KEY=' /etc/polkaudit/backend.env | cut -d= -f2- || true)"
+fi
+
+if [[ ! -f /etc/polkaudit/frontend.env ]]; then
+  cp "$INSTALL_DIR/deploy/alibaba/frontend.env.example" /etc/polkaudit/frontend.env
+  if [[ -n "$API_KEY" ]]; then
+    sed -i "s|^API_KEY=.*|API_KEY=${API_KEY}|" /etc/polkaudit/frontend.env
+    sed -i "s|^NEXT_PUBLIC_API_KEY=.*|NEXT_PUBLIC_API_KEY=${API_KEY}|" /etc/polkaudit/frontend.env
+  fi
+  chown root:"$RUN_USER" /etc/polkaudit/frontend.env
+  chmod 640 /etc/polkaudit/frontend.env
+fi
+
+if [[ ! -f /etc/polkaudit/landing.env ]]; then
+  cp "$INSTALL_DIR/deploy/alibaba/landing.env.example" /etc/polkaudit/landing.env
+  chown root:"$RUN_USER" /etc/polkaudit/landing.env
+  chmod 640 /etc/polkaudit/landing.env
 fi
 
 # --- Python venvs ---
@@ -129,35 +164,21 @@ sudo -u "$RUN_USER" bash -c "
   ./venv/bin/alembic upgrade head
 "
 
-# --- systemd ---
-sed "s/User=ubuntu/User=${RUN_USER}/; s/Group=ubuntu/Group=${RUN_USER}/" \
-  "$INSTALL_DIR/deploy/alibaba/polkaudit-indexer.service" \
-  > /etc/systemd/system/polkaudit-indexer.service
-sed "s/User=ubuntu/User=${RUN_USER}/; s/Group=ubuntu/Group=${RUN_USER}/" \
-  "$INSTALL_DIR/deploy/alibaba/polkaudit-backend.service" \
-  > /etc/systemd/system/polkaudit-backend.service
+# --- systemd (API + indexer now; UI after first Actions deploy) ---
+for unit in indexer backend frontend landing; do
+  sed "s/User=ubuntu/User=${RUN_USER}/; s/Group=ubuntu/Group=${RUN_USER}/" \
+    "$INSTALL_DIR/deploy/alibaba/polkaudit-${unit}.service" \
+    > "/etc/systemd/system/polkaudit-${unit}.service"
+done
 
-chmod +x "$INSTALL_DIR/deploy/alibaba/prune-old-blocks.sh" \
-  "$INSTALL_DIR/deploy/alibaba/remote-deploy.sh"
+chmod +x "$INSTALL_DIR/deploy/alibaba/"*.sh
 
 systemctl daemon-reload
 systemctl enable --now polkaudit-backend polkaudit-indexer
+systemctl enable polkaudit-frontend polkaudit-landing
 
-# --- nginx reverse proxy ---
-cat > /etc/nginx/sites-available/polkaudit <<'NGINX'
-server {
-    listen 80 default_server;
-    server_name _;
-
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-NGINX
+# --- nginx (api / app / landing hostnames) ---
+cp "$INSTALL_DIR/deploy/alibaba/nginx-polkaudit.conf" /etc/nginx/sites-available/polkaudit
 ln -sfn /etc/nginx/sites-available/polkaudit /etc/nginx/sites-enabled/polkaudit
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
@@ -171,11 +192,17 @@ EOF
 chmod 644 "$CRON_FILE"
 
 echo ""
-echo "=== Setup complete ==="
-echo "  Backend:  systemctl status polkaudit-backend"
-echo "  Indexer:  systemctl status polkaudit-indexer"
-echo "  Health:   curl -s http://127.0.0.1/health"
-echo "  Envs:     /etc/polkaudit/{backend,indexer}.env"
-echo "  Prune:    /etc/cron.d/polkaudit-prune"
-echo "Next: point DNS A record for api.polkaudit.xyz here; add TLS (certbot)."
-echo "CI/CD: add GitHub secrets SAS_HOST / SAS_USER / SAS_SSH_KEY — see docs/ALIBABA_SAS_DEPLOY.md"
+echo "=== Setup complete (API + indexer) ==="
+echo "  Backend:   systemctl status polkaudit-backend"
+echo "  Indexer:   systemctl status polkaudit-indexer"
+echo "  Health:    curl -s http://127.0.0.1:8080/health"
+echo "  Envs:      /etc/polkaudit/{backend,indexer,frontend,landing}.env"
+echo "  Prune:     /etc/cron.d/polkaudit-prune"
+echo "  Swap:      enabled (2G) for 2 GiB SAS"
+echo ""
+echo "Next:"
+echo "  1) Add GitHub secrets SAS_HOST / SAS_USER / SAS_SSH_KEY"
+echo "  2) Push or run workflow 'Deploy Alibaba SAS' — builds Next.js in CI and deploys UI"
+echo "  3) Point DNS: polkaudit.xyz, app.polkaudit.xyz, api.polkaudit.xyz → this IP"
+echo "  4) sudo certbot --nginx -d polkaudit.xyz -d www.polkaudit.xyz -d app.polkaudit.xyz -d api.polkaudit.xyz"
+echo "See docs/ALIBABA_SAS_DEPLOY.md"
