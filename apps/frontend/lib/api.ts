@@ -260,13 +260,17 @@ export async function registerAccount(email: string, password: string) {
 export async function authFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const base = getApiBaseUrl().replace('/api/v1', '');
   const token = getAuthToken();
+  const projectId =
+    typeof window !== 'undefined' ? localStorage.getItem('polkaudit_project_id') : null;
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(projectId ? { 'X-Project-ID': projectId } : {}),
     ...(options.headers || {}),
   };
   const res = await fetch(`${base}${path}`, { ...options, headers, cache: 'no-store' });
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
