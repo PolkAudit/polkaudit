@@ -9,9 +9,11 @@ from src.schemas.proposal import ProposalResponse
 from src.services.governance import GovernanceService
 from src.services.stats import StatsService
 from src.services.treasury import TreasuryService
+from src.services.activity import ActivityService
 from src.schemas.stats import StatsOverview
 from src.schemas.treasury import TreasurySpendResponse
 from src.schemas.vote import ProposalDetailResponse, VoteResponse
+from src.schemas.activity import RecentActivityResponse
 
 router = APIRouter()
 
@@ -22,6 +24,15 @@ async def get_stats(
 ):
     service = StatsService(db)
     return await service.get_overview()
+
+@router.get("/activity/recent", response_model=RecentActivityResponse)
+async def get_recent_activity(
+    limit: int = 12,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(get_api_key),
+):
+    service = ActivityService(db)
+    return await service.get_recent(min(max(limit, 1), 50))
 
 @router.get("/proposals", response_model=List[ProposalResponse])
 async def get_proposals(

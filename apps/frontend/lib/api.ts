@@ -125,11 +125,28 @@ export interface TreasurySpend {
   value: string;
 }
 
+export interface ActivityItem {
+  type: 'proposal' | 'vote' | 'treasury';
+  title: string;
+  subtitle: string;
+  block_number: number;
+  href: string;
+  status?: string | null;
+}
+
+export interface RecentActivity {
+  items: ActivityItem[];
+  last_indexed_block: number;
+  last_governance_block: number;
+}
+
 export const api = {
   getStats: () => fetchAPI<StatsOverview>('/stats/overview'),
   getProposals: () => fetchAPI<Proposal[]>('/proposals'),
   getProposalDetail: (id: string | number) => fetchAPI<ProposalDetail>(`/proposals/${id}`),
   getTreasurySpends: () => fetchAPI<TreasurySpend[]>('/treasury/spends'),
+  getRecentActivity: (limit = 12) =>
+    fetchAPI<RecentActivity>(`/activity/recent?limit=${limit}`),
 };
 
 export async function downloadProposalsCsv() {

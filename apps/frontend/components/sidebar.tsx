@@ -9,6 +9,7 @@ import {
   Download,
   Settings,
   Menu,
+  Bell,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -21,6 +22,7 @@ const navItems = [
   { label: 'Overview', href: '/', icon: BarChart3 },
   { label: 'Proposals', href: '/proposals', icon: FileText },
   { label: 'Treasury', href: '/treasury', icon: Coins },
+  { label: 'Alerts', href: '/alerts', icon: Bell },
   { label: 'Exports', href: '/exports', icon: Download },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]

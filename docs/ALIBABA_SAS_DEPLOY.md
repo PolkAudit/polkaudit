@@ -116,7 +116,19 @@ sudo certbot --nginx -d app.polkaudit.xyz -d api.polkaudit.xyz
 | `deploy/alibaba/nginx-polkaudit.conf` | app + api routing |
 | `deploy/alibaba/polkaudit-*.service` | systemd units |
 | `deploy/alibaba/prune-old-blocks.sh` | Disk retention |
+| `deploy/alibaba/reindex-range.sh` | Re-scan blocks for OpenGov/treasury catch-up |
 | `.github/workflows/deploy-alibaba-sas.yml` | Build dashboard + SSH deploy |
+
+### Re-index a governance-rich range
+
+If the dashboard shows blocks but **0 proposals/votes/treasury**, re-scan from a known height (does not wipe the whole DB):
+
+```bash
+# as root on SAS — example start block; pick from Subscan / recent tip minus N
+bash /opt/polkaudit/deploy/alibaba/reindex-range.sh 28000000
+journalctl -u polkaudit-indexer -f
+# look for: Found governance proposals=… votes=… spends=…
+```
 
 ---
 
