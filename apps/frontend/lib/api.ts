@@ -251,39 +251,6 @@ export async function loginWithPassword(email: string, password: string) {
   return data;
 }
 
-export async function registerAccount(email: string, password: string) {
-  const base = getApiBaseUrl().replace('/api/v1', '');
-  let res: Response;
-  try {
-    res = await fetch(`${base}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-  } catch {
-    throw new Error(
-      'Cannot reach API. Use https://app.polkaudit.xyz and ensure api.polkaudit.xyz is up.'
-    );
-  }
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({} as any));
-    const detail = err?.detail;
-    const msg =
-      typeof detail === 'string'
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ')
-          : detail?.msg || err?.error || 'Registration failed';
-    throw new Error(msg);
-  }
-  const data = await res.json();
-  if (data?.project_id && typeof window !== 'undefined') {
-    localStorage.setItem('polkaudit_project_id', String(data.project_id));
-  }
-  if (data?.access_token) setAuthToken(data.access_token);
-  return data;
-}
-
 function formatApiError(err: any, status: number): string {
   const detail = err?.detail;
   if (typeof detail === 'string') return detail;
@@ -389,10 +356,15 @@ export type CheckoutResult = {
   checkout_url?: string | null;
   contact?: string | null;
   plan_slug?: string | null;
-  amount_inr_paise?: number | null;
+  amount_usd_cents?: number | null;
+  currency?: string | null;
+  billing_interval?: string | null;
 };
 
-export async function startCheckout(planSlug: 'pilot' | 'pro'): Promise<CheckoutResult> {
+/** Prefer Console Billing UI — kept for compatibility. */
+export async function startCheckout(
+  planSlug: 'pilot' | 'starter' | 'pro'
+): Promise<CheckoutResult> {
   return authFetch<CheckoutResult>('/api/v1/billing/checkout', {
     method: 'POST',
     body: JSON.stringify({ plan_slug: planSlug }),

@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Header } from '@/components/header'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Loader2 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { CheckCircle2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   authFetch,
@@ -31,33 +32,55 @@ const PLAN_BLURBS: Record<string, string> = {
   enterprise: 'Quote-only — contact sales',
 }
 
-export default function BillingPage() {
+function BillingPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [sub, setSub] = useState<SubscriptionInfo | null>(null)
   const [plans, setPlans] = useState<BillingPlan[]>([])
   const [checkoutBusy, setCheckoutBusy] = useState<CheckoutPlanSlug | null>(null)
   const [loading, setLoading] = useState(true)
+  const [paymentNotice, setPaymentNotice] = useState<string | null>(null)
 
   useEffect(() => {
     if (!getAuthToken()) {
       router.replace('/login')
       return
     }
+    const razorpayStatus = searchParams.get('razorpay_payment_link_status')
+    const paidHint =
+      razorpayStatus === 'paid' ||
+      searchParams.get('payment') === 'success' ||
+      searchParams.get('status') === 'paid'
     ;(async () => {
       try {
-        const [subscription, planList] = await Promise.all([
-          authFetch<SubscriptionInfo>('/api/v1/billing/subscription').catch(() => ({
-            plan: { slug: 'free', name: 'Free', price_usd_cents: 0, currency: 'USD' },
-          })),
-          authFetch<BillingPlan[]>('/api/v1/billing/plans').catch(() => []),
-        ])
-        setSub(subscription)
-        setPlans(planList)
+        const load = async () => {
+          const [subscription, planList] = await Promise.all([
+            authFetch<SubscriptionInfo>('/api/v1/billing/subscription').catch(() => ({
+              plan: { slug: 'free', name: 'Free', price_usd_cents: 0, currency: 'USD' },
+            })),
+            authFetch<BillingPlan[]>('/api/v1/billing/plans').catch(() => []),
+          ])
+          setSub(subscription)
+          setPlans(planList)
+          return subscription
+        }
+        let subscription = await load()
+        if (paidHint) {
+          // Webhook may lag a few seconds behind the browser callback.
+          await new Promise((r) => setTimeout(r, 1500))
+          subscription = await load()
+          const name = subscription.plan?.name || subscription.plan?.slug || 'your plan'
+          setPaymentNotice(
+            `Payment received. Current plan: ${name}. If this still shows Free, wait a moment and refresh — webhook activation can lag.`
+          )
+          toast.success('Payment callback received')
+          router.replace('/billing')
+        }
       } finally {
         setLoading(false)
       }
     })()
-  }, [router])
+  }, [router, searchParams])
 
   const planSlug = sub?.plan?.slug || 'free'
   const planName = sub?.plan?.name || planSlug || 'Free'
@@ -106,6 +129,15 @@ export default function BillingPage() {
           </a>{' '}
           USD midpoints. Checkout is USD-only via Razorpay payment links.
         </p>
+
+        {paymentNotice && (
+          <Alert className="border border-emerald-600/30 bg-emerald-600/10">
+            <AlertDescription className="text-emerald-400 text-sm flex items-start gap-2">
+              <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              {paymentNotice}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -207,5 +239,24 @@ export default function BillingPage() {
         )}
       </main>
     </DashboardLayout>
+  )
+}
+
+
+export default function BillingPage() {
+  return (
+    <Suspense
+      fallback={
+        <DashboardLayout>
+          <Header title="Billing" showSearch={false} />
+          <main className="p-6 flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading…
+          </main>
+        </DashboardLayout>
+      }
+    >
+      <BillingPageInner />
+    </Suspense>
   )
 }

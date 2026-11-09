@@ -15,6 +15,7 @@ import {
   formatBillingInterval,
   formatUsdCents,
   getAuthToken,
+  type AdminProject,
   type BillingPlan,
 } from '@/lib/api'
 
@@ -24,7 +25,8 @@ export default function AdminBillingPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [plans, setPlans] = useState<BillingPlan[]>([])
-  const [projectId, setProjectId] = useState('1')
+  const [projects, setProjects] = useState<AdminProject[]>([])
+  const [projectId, setProjectId] = useState('')
   const [planSlug, setPlanSlug] = useState<(typeof ADMIN_PLANS)[number]>('starter')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
@@ -42,8 +44,13 @@ export default function AdminBillingPage() {
           router.replace('/')
           return
         }
-        const list = await authFetch<BillingPlan[]>('/api/v1/billing/plans')
+        const [list, projectList] = await Promise.all([
+          authFetch<BillingPlan[]>('/api/v1/billing/plans'),
+          authFetch<AdminProject[]>('/api/v1/projects/'),
+        ])
         setPlans(list)
+        setProjects(projectList)
+        if (projectList[0]) setProjectId(String(projectList[0].id))
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Failed to load')
         router.replace('/')
@@ -57,7 +64,7 @@ export default function AdminBillingPage() {
     e.preventDefault()
     const pid = Number(projectId)
     if (!Number.isFinite(pid) || pid <= 0) {
-      toast.error('Enter a valid project id')
+      toast.error('Select a project')
       return
     }
     setSaving(true)
@@ -85,8 +92,8 @@ export default function AdminBillingPage() {
       <Header title="Platform billing" showSearch={false} />
       <main className="p-6 max-w-3xl space-y-6">
         <p className="text-sm text-muted-foreground">
-          Manually assign a tenant subscription (USD list prices). Use this for Wise/DOT
-          pilots or when Razorpay is not used.
+          Manually assign a tenant subscription (USD list prices). Use for Wise/DOT pilots
+          or when Razorpay is not used.
         </p>
 
         {loading ? (
@@ -103,14 +110,20 @@ export default function AdminBillingPage() {
               <form onSubmit={handleSet} className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground uppercase">
-                    Project ID
+                    Project
                   </label>
-                  <Input
-                    required
+                  <select
+                    className="w-full h-10 rounded-md border border-border bg-background px-3 text-sm"
                     value={projectId}
                     onChange={(e) => setProjectId(e.target.value)}
-                    inputMode="numeric"
-                  />
+                    required
+                  >
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} (#{p.id} · {p.slug})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground uppercase">
@@ -149,7 +162,7 @@ export default function AdminBillingPage() {
                     placeholder="e.g. Wise invoice #42"
                   />
                 </div>
-                <Button type="submit" disabled={saving}>
+                <Button type="submit" disabled={saving || !projectId}>
                   {saving ? 'Saving…' : 'Apply subscription'}
                 </Button>
               </form>

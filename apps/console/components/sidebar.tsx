@@ -12,8 +12,11 @@ import {
   Users,
   FolderKanban,
   Wallet,
+  Building2,
+  UsersRound,
   ExternalLink,
 } from 'lucide-react'
+import { ProjectSwitcher } from '@/components/project-switcher'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
@@ -44,6 +47,8 @@ const mainNav: NavItem[] = [
 ]
 
 const adminNav: NavItem[] = [
+  { label: 'Onboard tenant', href: '/admin/tenants', icon: Building2, adminOnly: true },
+  { label: 'Memberships', href: '/admin/memberships', icon: UsersRound, adminOnly: true },
   { label: 'Users', href: '/admin/users', icon: Users, adminOnly: true },
   { label: 'Projects', href: '/admin/projects', icon: FolderKanban, adminOnly: true },
   { label: 'Platform billing', href: '/admin/billing', icon: Wallet, adminOnly: true },
@@ -197,7 +202,10 @@ export function DesktopSidebar() {
   return (
     <aside className="hidden md:flex w-72 h-screen flex-col bg-sidebar border-r border-sidebar-border fixed left-0 top-0 shadow-lg">
       <SidebarBrand />
-      <nav className="flex-1 px-4 py-6 overflow-y-auto">
+      <div className="px-4 pt-4">
+        <ProjectSwitcher />
+      </div>
+      <nav className="flex-1 px-4 py-4 overflow-y-auto">
         <NavList items={items} pathname={pathname} />
       </nav>
       <SidebarFooter apiStatus={apiStatus} apiBase={apiBase} />
@@ -223,7 +231,10 @@ export function MobileSidebar() {
       <SheetContent side="left" className="w-72 p-0 bg-sidebar">
         <div className="flex flex-col h-full">
           <SidebarBrand />
-          <nav className="flex-1 px-4 py-6 overflow-y-auto">
+          <div className="px-4 pt-4">
+            <ProjectSwitcher />
+          </div>
+          <nav className="flex-1 px-4 py-4 overflow-y-auto">
             <NavList items={items} pathname={pathname} />
           </nav>
           <SidebarFooter apiStatus={apiStatus} apiBase={apiBase} />

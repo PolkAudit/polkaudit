@@ -10,6 +10,8 @@ governance dashboard.
 | Billing | `/billing` | USD plans + Razorpay checkout |
 | Alerts | `/alerts` | Channels, rules, history |
 | Settings | `/settings` | Password, email verify, connection |
+| Onboard tenant | `/admin/tenants` | Project + user + plan + API key (admin) |
+| Memberships | `/admin/memberships` | Assign users to projects (admin) |
 | Users | `/admin/users` | Invite users (admin) |
 | Projects | `/admin/projects` | Create/list tenants (admin) |
 | Platform billing | `/admin/billing` | Manually set tenant plan (admin) |

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { Header } from '@/components/header'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card } from '@/components/ui/card'
@@ -157,19 +156,29 @@ export default function AlertsPage() {
   }
 
   if (!signedIn) {
+    const consoleUrl =
+      process.env.NEXT_PUBLIC_CONSOLE_URL || 'https://console.polkaudit.xyz'
     return (
       <DashboardLayout>
         <Header title="Alerts" showSearch={false} />
         <main className="p-6">
           <Card className="bg-card border-border p-8 max-w-lg space-y-4">
             <Bell className="h-8 w-8 text-accent" />
-            <h2 className="text-lg font-semibold text-foreground">Sign in to manage alerts</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              Manage alerts in Console
+            </h2>
             <p className="text-sm text-muted-foreground">
-              Create email channels and treasury-threshold rules for your project.
+              Email channels and treasury-threshold rules are configured in the PolkAudit
+              Console (JWT account), not with the dashboard API key alone.
             </p>
-            <Button asChild>
-              <Link href="/login">Sign in</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild>
+                <a href={`${consoleUrl}/alerts`}>Open Console alerts</a>
+              </Button>
+              <Button variant="outline" asChild>
+                <a href={`${consoleUrl}/login`}>Console sign in</a>
+              </Button>
+            </div>
           </Card>
         </main>
       </DashboardLayout>
