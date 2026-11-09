@@ -97,13 +97,16 @@ class PlatformSettingsService:
         elif password is not None and password != "":
             next_password = password
 
+        port_i = int(port)
+        # use_tls = STARTTLS. Port 465 is implicit SSL — never STARTTLS.
+        starttls = False if port_i == 465 else bool(use_tls)
         value = {
             "host": host.strip(),
-            "port": int(port),
+            "port": port_i,
             "user": user.strip(),
             "password": next_password,
             "from_address": from_address.strip(),
-            "use_tls": bool(use_tls),
+            "use_tls": starttls,
         }
         await self.upsert(SMTP_KEY, value)
         return await self.get_smtp_public()

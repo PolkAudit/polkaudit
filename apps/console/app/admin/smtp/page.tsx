@@ -42,11 +42,13 @@ export default function AdminSmtpPage() {
   const [testTo, setTestTo] = useState('')
 
   const apply = (s: SmtpSettings) => {
+    const nextPort = String(s.port || 587)
     setHost(s.host || '')
-    setPort(String(s.port || 587))
+    setPort(nextPort)
     setUser(s.user || '')
     setFromAddress(s.from_address || 'PolkAudit <noreply@polkaudit.xyz>')
-    setUseTls(!!s.use_tls)
+    // Port 465 = implicit SSL; STARTTLS only for 587-style servers
+    setUseTls(nextPort === '465' ? false : !!s.use_tls)
     setPasswordSet(!!s.password_set)
     setSource(s.source || 'env')
     setConfigured(!!s.configured)
@@ -82,12 +84,13 @@ export default function AdminSmtpPage() {
     e.preventDefault()
     setSaving(true)
     try {
+      const portNum = Number(port) || 587
       const body: Record<string, unknown> = {
         host,
-        port: Number(port) || 587,
+        port: portNum,
         user,
         from_address: fromAddress,
-        use_tls: useTls,
+        use_tls: portNum === 465 ? false : useTls,
         clear_password: false,
       }
       if (password.trim()) body.password = password.trim()
@@ -107,14 +110,15 @@ export default function AdminSmtpPage() {
   const handleClearPassword = async () => {
     setSaving(true)
     try {
+      const portNum = Number(port) || 587
       const s = await authFetch<SmtpSettings>('/api/admin/settings/smtp', {
         method: 'PUT',
         body: JSON.stringify({
           host,
-          port: Number(port) || 587,
+          port: portNum,
           user,
           from_address: fromAddress,
-          use_tls: useTls,
+          use_tls: portNum === 465 ? false : useTls,
           clear_password: true,
         }),
       })
@@ -198,9 +202,20 @@ export default function AdminSmtpPage() {
                     </label>
                     <Input
                       value={port}
-                      onChange={(e) => setPort(e.target.value)}
+                      onChange={(e) => {
+                        const next = e.target.value
+                        setPort(next)
+                        // Zoho/Gmail: 465 = implicit SSL; 587 = STARTTLS
+                        if (next === '465') setUseTls(false)
+                        else if (next === '587') setUseTls(true)
+                      }}
                       inputMode="numeric"
+                      placeholder="465 or 587"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Zoho Mail: <span className="font-mono">465</span> SSL or{' '}
+                      <span className="font-mono">587</span> TLS
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-muted-foreground uppercase">
@@ -238,10 +253,29 @@ export default function AdminSmtpPage() {
                 <div className="flex items-center justify-between border-t border-border pt-4">
                   <div>
                     <p className="text-sm font-medium">Use STARTTLS</p>
-                    <p className="text-xs text-muted-foreground">Typical for port 587</p>
+                    <p className="text-xs text-muted-foreground">
+                      On for port 587 (TLS). Off for port 465 (SSL connects encrypted —
+                      STARTTLS on 465 fails).
+                    </p>
                   </div>
-                  <Switch checked={useTls} onCheckedChange={setUseTls} />
+                  <Switch
+                    checked={useTls}
+                    onCheckedChange={setUseTls}
+                    disabled={port === '465'}
+                  />
                 </div>
+                {port === '465' && (
+                  <p className="text-xs text-muted-foreground -mt-2">
+                    Port 465 uses implicit SSL automatically; STARTTLS is disabled.
+                  </p>
+                )}
+                <Alert className="border border-border bg-muted/30">
+                  <AlertDescription className="text-xs text-muted-foreground">
+                    Zoho requires authentication. Prefer a From address on the same mailbox
+                    domain as Username (or an authorized Zoho sender). Example:{' '}
+                    <span className="font-mono">smtppro.zoho.com</span> · 465 SSL or 587 TLS.
+                  </AlertDescription>
+                </Alert>
                 <div className="flex flex-wrap gap-2">
                   <Button type="submit" disabled={saving}>
                     {saving ? 'Saving…' : 'Save SMTP settings'}

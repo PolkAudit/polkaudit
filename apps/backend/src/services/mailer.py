@@ -52,18 +52,36 @@ async def send_email(to: str, subject: str, body: str) -> bool:
     msg["Subject"] = subject
     msg.set_content(body)
 
+    port = int(cfg.get("port") or 587)
+    # Platform setting `use_tls` means STARTTLS (typical for 587).
+    # Port 465 uses implicit SSL/TLS from connect (Zoho/Gmail SSL) — not STARTTLS.
+    want_starttls = bool(cfg.get("use_tls", True))
+    if port == 465:
+        use_tls, start_tls = True, False
+    else:
+        use_tls, start_tls = False, want_starttls
+
     try:
         await aiosmtplib.send(
             msg,
             hostname=host,
-            port=int(cfg.get("port") or 587),
+            port=port,
             username=(cfg.get("user") or None) or None,
             password=(cfg.get("password") or None) or None,
-            start_tls=bool(cfg.get("use_tls", True)),
+            use_tls=use_tls,
+            start_tls=start_tls,
         )
-        logger.info("email_sent", to=to, subject=subject, source=cfg.get("source"))
+        logger.info(
+            "email_sent",
+            to=to,
+            subject=subject,
+            source=cfg.get("source"),
+            port=port,
+            use_tls=use_tls,
+            start_tls=start_tls,
+        )
         return True
     except Exception as e:
-        logger.error("email_send_failed", to=to, error=str(e))
+        logger.error("email_send_failed", to=to, error=str(e), port=port)
         logger.info("email_fallback_log", to=to, subject=subject, body=body)
         return False
