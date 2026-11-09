@@ -105,5 +105,34 @@ async def login_for_access_token(
 
 
 @router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: UserResponse = Depends(get_current_active_user)):
+async def read_users_me(current_user = Depends(get_current_active_user)):
     return current_user
+
+
+class MyProject(BaseModel):
+    project_id: int
+    role: str
+    name: str | None = None
+    slug: str | None = None
+
+
+@router.get("/projects", response_model=list[MyProject])
+async def list_my_projects(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_active_user),
+):
+    result = await db.execute(
+        select(UserProject, Project)
+        .join(Project, Project.id == UserProject.project_id)
+        .where(UserProject.user_id == current_user.id)
+    )
+    rows = result.all()
+    return [
+        MyProject(
+            project_id=up.project_id,
+            role=up.role,
+            name=proj.name,
+            slug=proj.slug,
+        )
+        for up, proj in rows
+    ]

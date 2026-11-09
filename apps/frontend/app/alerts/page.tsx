@@ -78,6 +78,8 @@ export default function AlertsPage() {
     }
     ;(async () => {
       try {
+        const { resolveAndStoreProjectId } = await import('@/lib/api')
+        await resolveAndStoreProjectId()
         await refresh()
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Failed to load alerts')

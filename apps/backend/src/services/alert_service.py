@@ -43,7 +43,16 @@ class AlertService:
         threshold = rule.condition.get("threshold", 0)
         # Find latest spend exceeding threshold (Simplified logic for demo)
         # In real world, we'd track "last_checked_block" to avoid duplicates
-        stmt = select(TreasurySpend).where(TreasurySpend.value > str(threshold), TreasurySpend.project_id == project_id).order_by(TreasurySpend.block_number.desc()).limit(1)
+        # Shared-chain MVP: spends are indexed without project_id; still alert for this tenant.
+        stmt = (
+            select(TreasurySpend)
+            .where(
+                TreasurySpend.value > str(threshold),
+                (TreasurySpend.project_id == project_id) | (TreasurySpend.project_id.is_(None)),
+            )
+            .order_by(TreasurySpend.block_number.desc())
+            .limit(1)
+        )
         result = await self.db.execute(stmt)
         spend = result.scalars().first()
 

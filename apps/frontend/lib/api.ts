@@ -213,6 +213,20 @@ export function getAuthToken(): string {
   return localStorage.getItem(JWT_STORAGE_KEY) || '';
 }
 
+export async function resolveAndStoreProjectId() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const projects = await authFetch<{ project_id: number }[]>('/api/auth/projects');
+    if (projects?.length) {
+      localStorage.setItem('polkaudit_project_id', String(projects[0].project_id));
+      return projects[0].project_id;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 export async function loginWithPassword(email: string, password: string) {
   const base = getApiBaseUrl().replace('/api/v1', '');
   const body = new URLSearchParams();
@@ -226,6 +240,7 @@ export async function loginWithPassword(email: string, password: string) {
   if (!res.ok) throw new Error('Login failed');
   const data = await res.json();
   setAuthToken(data.access_token);
+  await resolveAndStoreProjectId();
   return data;
 }
 
@@ -254,22 +269,47 @@ export async function registerAccount(email: string, password: string) {
           : detail?.msg || err?.error || 'Registration failed';
     throw new Error(msg);
   }
-  return res.json();
+  const data = await res.json();
+  if (data?.project_id && typeof window !== 'undefined') {
+    localStorage.setItem('polkaudit_project_id', String(data.project_id));
+  }
+  if (data?.access_token) setAuthToken(data.access_token);
+  return data;
+}
+
+function formatApiError(err: any, status: number): string {
+  const detail = err?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) return detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ');
+  if (detail?.msg) return detail.msg;
+  if (err?.error) return String(err.error);
+  return `Request failed: ${status}`;
 }
 
 export async function authFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const base = getApiBaseUrl().replace('/api/v1', '');
   const token = getAuthToken();
-  const projectId =
+  let projectId =
     typeof window !== 'undefined' ? localStorage.getItem('polkaudit_project_id') : null;
+  if (!projectId && token && !path.includes('/api/auth/projects')) {
+    projectId = String((await resolveAndStoreProjectId()) || '') || null;
+  }
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(projectId ? { 'X-Project-ID': projectId } : {}),
     ...(options.headers || {}),
   };
-  const res = await fetch(`${base}${path}`, { ...options, headers, cache: 'no-store' });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  let res: Response;
+  try {
+    res = await fetch(`${base}${path}`, { ...options, headers, cache: 'no-store' });
+  } catch {
+    throw new Error('Cannot reach API (network/HTTPS). Try again in a moment.');
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(formatApiError(err, res.status));
+  }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
