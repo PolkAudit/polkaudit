@@ -4,6 +4,9 @@ SaaS account UI for PolkAudit platform admins: login, email verification, passwo
 
 Public sign-up is **disabled**. Create users with `POST /api/admin/users` (admin JWT).
 
+Bootstrap admin is seeded by migration (`admin@polkaudit.xyz`, role `admin`, email pre-verified).
+Forgot / reset password remain available on `/forgot-password` and `/reset-password`.
+
 - **Prod:** `https://console.polkaudit.xyz` on **Alibaba SAS** (`polkaudit-console`, port `3001`)
 - **API:** same backend as the dashboard (`NEXT_PUBLIC_API_URL`)
 - **Dashboard link:** `NEXT_PUBLIC_APP_URL` (default `https://app.polkaudit.xyz`)
