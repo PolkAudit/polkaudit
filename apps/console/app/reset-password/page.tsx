@@ -82,15 +82,19 @@ function ResetPasswordInner() {
             <label htmlFor="confirm" className="text-xs font-medium text-muted-foreground uppercase">
               Confirm password
             </label>
-            <Input
-              id="confirm"
-              type="password"
-              required
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              disabled={isLoading}
-              autoComplete="new-password"
-            />
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="confirm"
+                type="password"
+                required
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                className="pl-9"
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+            </div>
           </div>
           <Button type="submit" disabled={isLoading} className="w-full" size="lg">
             {isLoading ? 'Updating…' : 'Update password'}
