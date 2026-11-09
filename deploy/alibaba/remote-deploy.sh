@@ -93,21 +93,29 @@ for unit in indexer backend frontend; do
   fi
 done
 
-# Nginx: never wipe certbot TLS. Only install base HTTP conf when 443 is absent.
+# Nginx + HTTPS: base proxy config, then always reattach Let's Encrypt (Chrome requires HTTPS).
 if [[ -f "$INSTALL_DIR/deploy/alibaba/nginx-polkaudit.conf" ]]; then
   as_root "
+    set -e
     SITE=/etc/nginx/sites-available/polkaudit
-    if [[ -f \"\$SITE\" ]] && grep -qE 'listen[[:space:]]+443' \"\$SITE\"; then
-      echo 'nginx: preserving existing TLS site config'
+    cp '$INSTALL_DIR/deploy/alibaba/nginx-polkaudit.conf' \"\$SITE\"
+    ln -sfn \"\$SITE\" /etc/nginx/sites-enabled/polkaudit
+    rm -f /etc/nginx/sites-enabled/default
+    nginx -t
+
+    if [[ -d /etc/letsencrypt/live/app.polkaudit.xyz ]]; then
+      echo 'nginx: reinstalling TLS certs for app + api'
+      certbot --nginx \
+        -d app.polkaudit.xyz -d api.polkaudit.xyz \
+        --non-interactive --reinstall --redirect \
+        --agree-tos --register-unsafely-without-email \
+        || certbot install --cert-name app.polkaudit.xyz --nginx --non-interactive || true
     else
-      echo 'nginx: installing base HTTP site (will reattach certs if present)'
-      cp '$INSTALL_DIR/deploy/alibaba/nginx-polkaudit.conf' \"\$SITE\"
-      ln -sfn \"\$SITE\" /etc/nginx/sites-enabled/polkaudit
-      if [[ -d /etc/letsencrypt/live/app.polkaudit.xyz ]]; then
-        certbot --nginx -d app.polkaudit.xyz -d api.polkaudit.xyz --non-interactive --reinstall --redirect || true
-      fi
+      echo 'WARNING: no certs in /etc/letsencrypt/live/app.polkaudit.xyz — run certbot once on the host'
     fi
+
     nginx -t && systemctl reload nginx
+    ss -tlnp | grep -E ':443|:80' || true
   "
 fi
 
@@ -124,5 +132,7 @@ sleep 3
 curl -fsS "http://127.0.0.1:8080/health"
 echo ""
 curl -fsS -o /dev/null -w "frontend:%{http_code}\n" "http://127.0.0.1:3000/" || echo "frontend: not up yet"
-systemctl is-active polkaudit-backend polkaudit-indexer polkaudit-frontend || true
+curl -fsS -o /dev/null -w "https_app:%{http_code}\n" --connect-timeout 5 "https://127.0.0.1/" -H "Host: app.polkaudit.xyz" -k \
+  || echo "https_app: not listening (certbot may need first-time run)"
+systemctl is-active polkaudit-backend polkaudit-indexer polkaudit-frontend nginx || true
 echo "Deploy OK @ $(git -C "$INSTALL_DIR" rev-parse --short HEAD) (landing = Vercel)"
