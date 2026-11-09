@@ -7,11 +7,14 @@ governance dashboard.
 |--------|-------|---------|
 | Home | `/` | Account summary, projects, open dashboard |
 | API keys | `/keys` | Create / revoke project API keys |
-| Billing | `/billing` | Plan + Razorpay checkout |
+| Billing | `/billing` | USD plans + Razorpay checkout |
 | Alerts | `/alerts` | Channels, rules, history |
 | Settings | `/settings` | Password, email verify, connection |
 | Users | `/admin/users` | Invite users (admin) |
 | Projects | `/admin/projects` | Create/list tenants (admin) |
+| Platform billing | `/admin/billing` | Manually set tenant plan (admin) |
+
+**USD list prices (landing midpoints):** Pilot $1,000 / 3 months · Starter $149 / month · Pro $599 / month · Enterprise quote-only.
 
 Governance (Overview, Proposals, Treasury, Exports) stays on
 `https://app.polkaudit.xyz` (`apps/frontend`).

@@ -244,15 +244,19 @@ export async function resetPassword(token: string, password: string): Promise<{ 
   return res.json();
 }
 
+export type CheckoutPlanSlug = 'pilot' | 'starter' | 'pro';
+
 export type CheckoutResult = {
   mode: 'razorpay' | 'manual';
   checkout_url?: string | null;
   contact?: string | null;
   plan_slug?: string | null;
-  amount_inr_paise?: number | null;
+  amount_usd_cents?: number | null;
+  currency?: string | null;
+  billing_interval?: string | null;
 };
 
-export async function startCheckout(planSlug: 'pilot' | 'pro'): Promise<CheckoutResult> {
+export async function startCheckout(planSlug: CheckoutPlanSlug): Promise<CheckoutResult> {
   return authFetch<CheckoutResult>('/api/v1/billing/checkout', {
     method: 'POST',
     body: JSON.stringify({ plan_slug: planSlug }),
@@ -291,11 +295,30 @@ export type ManagedKey = {
 };
 
 export type BillingPlan = {
+  id?: number;
   slug: string;
   name: string;
-  price_inr_paise?: number | null;
-  interval?: string | null;
+  price_usd_cents?: number | null;
+  billing_interval?: string | null;
+  currency?: string | null;
+  export_limit_daily?: number | null;
+  retention_blocks?: number | null;
 };
+
+export function formatUsdCents(cents: number | null | undefined): string {
+  if (cents == null) return '—';
+  return `$${(cents / 100).toLocaleString('en-US', {
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+export function formatBillingInterval(interval: string | null | undefined): string {
+  if (interval === 'once_3mo') return '/ 3 months';
+  if (interval === 'month') return '/ month';
+  if (interval === 'custom') return 'custom';
+  return '';
+}
 
 export type SubscriptionInfo = {
   status?: string | null;

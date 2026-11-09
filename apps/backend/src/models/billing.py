@@ -12,7 +12,12 @@ class Plan(Base):
     export_limit_daily = Column(Integer, nullable=False, default=50)
     retention_blocks = Column(Integer, nullable=False, default=100000)
     is_active = Column(Boolean, nullable=False, default=True)
+    # Deprecated: kept for DB compat; checkout uses price_usd_cents only.
     price_inr_paise = Column(Integer, nullable=False, default=0)
+    price_usd_cents = Column(Integer, nullable=False, default=0)
+    # month | once_3mo | custom
+    billing_interval = Column(String, nullable=False, default="month")
+    currency = Column(String, nullable=False, default="USD")
 
 
 class Subscription(Base):
@@ -38,4 +43,3 @@ class PaymentEvent(Base):
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
     payload = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-

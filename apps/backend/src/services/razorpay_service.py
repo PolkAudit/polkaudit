@@ -24,18 +24,19 @@ class RazorpayService:
     async def create_payment_link(
         self,
         *,
-        amount_paise: int,
+        amount_cents: int,
         description: str,
         customer_email: str,
         notes: dict[str, str],
         callback_url: str,
+        currency: str = "USD",
     ) -> dict[str, Any]:
         if not self.enabled:
             raise RuntimeError("Razorpay is not configured")
 
         payload = {
-            "amount": amount_paise,
-            "currency": "INR",
+            "amount": amount_cents,
+            "currency": currency.upper(),
             "accept_partial": False,
             "description": description,
             "customer": {"email": customer_email},

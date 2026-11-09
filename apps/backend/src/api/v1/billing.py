@@ -18,6 +18,9 @@ from src.config import settings
 router = APIRouter()
 allow_admin = RoleChecker(["admin"])
 
+CHECKOUT_PLAN_SLUGS = ("pilot", "starter", "pro")
+ADMIN_PLAN_SLUGS = ("free", "pilot", "starter", "pro", "enterprise")
+
 
 class PlanResponse(BaseModel):
     id: int
@@ -25,6 +28,10 @@ class PlanResponse(BaseModel):
     name: str
     export_limit_daily: int
     retention_blocks: int
+    price_usd_cents: int = 0
+    billing_interval: str = "month"
+    currency: str = "USD"
+    # Deprecated — always 0; kept so older clients don't break.
     price_inr_paise: int = 0
 
     class Config:
@@ -46,13 +53,13 @@ class SubscriptionResponse(BaseModel):
 
 class SetSubscriptionRequest(BaseModel):
     project_id: int
-    plan_slug: str = Field(pattern="^(free|pilot|pro)$")
+    plan_slug: str = Field(pattern="^(free|pilot|starter|pro|enterprise)$")
     status: str = "active"
     billing_note: Optional[str] = None
 
 
 class CheckoutRequest(BaseModel):
-    plan_slug: str = Field(pattern="^(pilot|pro)$")
+    plan_slug: str = Field(pattern="^(pilot|starter|pro)$")
 
 
 class CheckoutResponse(BaseModel):
@@ -60,7 +67,17 @@ class CheckoutResponse(BaseModel):
     checkout_url: Optional[str] = None
     contact: Optional[str] = None
     plan_slug: Optional[str] = None
-    amount_inr_paise: Optional[int] = None
+    amount_usd_cents: Optional[int] = None
+    currency: str = "USD"
+    billing_interval: Optional[str] = None
+
+
+def _interval_label(interval: str) -> str:
+    if interval == "once_3mo":
+        return "/ 3 months"
+    if interval == "month":
+        return "/ month"
+    return ""
 
 
 @router.get("/plans", response_model=List[PlanResponse])
@@ -80,7 +97,6 @@ async def get_my_subscription(
     sub = await service.get_subscription(project_id)
     plan = await service.get_plan_for_project(project_id)
     if not sub:
-        # Synthetic free entitlement
         return SubscriptionResponse(
             id=0,
             project_id=project_id,
@@ -105,6 +121,8 @@ async def admin_set_subscription(
     body: SetSubscriptionRequest,
     db: AsyncSession = Depends(get_db),
 ):
+    if body.plan_slug not in ADMIN_PLAN_SLUGS:
+        raise HTTPException(status_code=400, detail="Unknown plan")
     service = BillingService(db)
     try:
         sub = await service.set_subscription(
@@ -131,13 +149,22 @@ async def create_checkout(
     current_user: User = Depends(get_current_active_user),
     project_id: int = Depends(get_current_project),
 ):
+    if body.plan_slug not in CHECKOUT_PLAN_SLUGS:
+        raise HTTPException(status_code=400, detail="Plan is not available for self-serve checkout")
+
     service = BillingService(db)
     plan = await service.get_plan_by_slug(body.plan_slug)
     if not plan or not plan.is_active:
         raise HTTPException(status_code=400, detail="Unknown plan")
-    amount = plan.price_inr_paise or 0
-    if amount <= 0:
+
+    amount = int(getattr(plan, "price_usd_cents", 0) or 0)
+    currency = (getattr(plan, "currency", None) or "USD").upper()
+    interval = getattr(plan, "billing_interval", None) or "month"
+    if amount <= 0 or currency != "USD":
         raise HTTPException(status_code=400, detail="Plan is not billable via checkout")
+
+    interval_note = _interval_label(interval)
+    description = f"PolkAudit {plan.name} plan {interval_note}".strip()
 
     rz = RazorpayService()
     if not rz.enabled:
@@ -145,26 +172,30 @@ async def create_checkout(
             mode="manual",
             contact="hello@polkaudit.xyz",
             plan_slug=body.plan_slug,
-            amount_inr_paise=amount,
+            amount_usd_cents=amount,
+            currency="USD",
+            billing_interval=interval,
         )
 
     try:
         link = await rz.create_payment_link(
-            amount_paise=amount,
-            description=f"PolkAudit {plan.name} plan",
+            amount_cents=amount,
+            currency="USD",
+            description=description,
             customer_email=current_user.email,
             notes={
                 "project_id": str(project_id),
                 "plan_slug": body.plan_slug,
                 "user_id": str(current_user.id),
+                "currency": "USD",
+                "amount_usd_cents": str(amount),
             },
-            callback_url=f"{settings.APP_PUBLIC_URL.rstrip('/')}/settings",
+            callback_url=f"{settings.APP_PUBLIC_URL.rstrip('/')}/billing",
         )
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
     link_id = link.get("id")
-    # Remember link on current subscription row (best-effort)
     sub = await service.get_subscription(project_id)
     if sub and link_id:
         sub.razorpay_payment_link_id = link_id
@@ -174,7 +205,9 @@ async def create_checkout(
         mode="razorpay",
         checkout_url=link.get("short_url"),
         plan_slug=body.plan_slug,
-        amount_inr_paise=amount,
+        amount_usd_cents=amount,
+        currency="USD",
+        billing_interval=interval,
     )
 
 
@@ -197,7 +230,6 @@ async def razorpay_webhook(
     event_type = event.get("event") or ""
     event_id = event.get("id")
 
-    # Idempotency: skip duplicate event ids
     if event_id:
         existing = await db.execute(
             select(PaymentEvent).where(PaymentEvent.event_id == str(event_id))
@@ -223,7 +255,6 @@ async def razorpay_webhook(
                 razorpay_payment_link_id=paid.get("payment_link_id") or None,
             )
         except (ValueError, KeyError) as e:
-            # Log via payment_events even on parse failure below
             project_id = None
             _ = e
 

@@ -11,6 +11,7 @@ import {
   Bell,
   Users,
   FolderKanban,
+  Wallet,
   ExternalLink,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -45,6 +46,7 @@ const mainNav: NavItem[] = [
 const adminNav: NavItem[] = [
   { label: 'Users', href: '/admin/users', icon: Users, adminOnly: true },
   { label: 'Projects', href: '/admin/projects', icon: FolderKanban, adminOnly: true },
+  { label: 'Platform billing', href: '/admin/billing', icon: Wallet, adminOnly: true },
 ]
 
 function isActivePath(pathname: string, href: string) {
