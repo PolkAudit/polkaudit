@@ -83,10 +83,10 @@ install_next_app() {
   fi
 }
 install_next_app frontend
-install_next_app landing
+# Landing stays on Vercel — do not install/start on SAS
 
 echo "== refresh systemd units =="
-for unit in indexer backend frontend landing; do
+for unit in indexer backend frontend; do
   src="$INSTALL_DIR/deploy/alibaba/polkaudit-${unit}.service"
   if [[ -f "$src" ]]; then
     as_root "sed 's/User=polkaudit/User=${RUN_USER}/; s/Group=polkaudit/Group=${RUN_USER}/; s/User=ubuntu/User=${RUN_USER}/; s/Group=ubuntu/Group=${RUN_USER}/' '$src' > '/etc/systemd/system/polkaudit-${unit}.service'"
@@ -103,10 +103,10 @@ fi
 
 as_root "
   systemctl daemon-reload
-  systemctl enable polkaudit-backend polkaudit-indexer polkaudit-frontend polkaudit-landing
+  systemctl enable polkaudit-backend polkaudit-indexer polkaudit-frontend
+  systemctl disable --now polkaudit-landing 2>/dev/null || true
   systemctl restart polkaudit-backend polkaudit-indexer
   if [[ -f '$INSTALL_DIR/apps/frontend/.next/standalone/server.js' ]]; then systemctl restart polkaudit-frontend; fi
-  if [[ -f '$INSTALL_DIR/apps/landing/.next/standalone/server.js' ]]; then systemctl restart polkaudit-landing; fi
 "
 
 echo "== health checks =="
@@ -114,7 +114,5 @@ sleep 3
 curl -fsS "http://127.0.0.1:8080/health"
 echo ""
 curl -fsS -o /dev/null -w "frontend:%{http_code}\n" "http://127.0.0.1:3000/" || echo "frontend: not up yet"
-curl -fsS -o /dev/null -w "landing:%{http_code}\n" "http://127.0.0.1:3001/" || echo "landing: not up yet"
-systemctl is-active polkaudit-backend polkaudit-indexer || true
-systemctl is-active polkaudit-frontend polkaudit-landing || true
-echo "Deploy OK @ $(git -C "$INSTALL_DIR" rev-parse --short HEAD)"
+systemctl is-active polkaudit-backend polkaudit-indexer polkaudit-frontend || true
+echo "Deploy OK @ $(git -C "$INSTALL_DIR" rev-parse --short HEAD) (landing = Vercel)"

@@ -186,8 +186,9 @@ sudo -u "$RUN_USER" bash -c "
   ./venv/bin/alembic upgrade head
 "
 
-# --- systemd (API + indexer now; UI after first Actions deploy) ---
-for unit in indexer backend frontend landing; do
+# --- systemd (API + indexer now; dashboard after first Actions deploy) ---
+# Landing stays on Vercel — do not enable polkaudit-landing on SAS.
+for unit in indexer backend frontend; do
   sed "s/User=polkaudit/User=${RUN_USER}/; s/Group=polkaudit/Group=${RUN_USER}/; s/User=ubuntu/User=${RUN_USER}/; s/Group=ubuntu/Group=${RUN_USER}/" \
     "$INSTALL_DIR/deploy/alibaba/polkaudit-${unit}.service" \
     > "/etc/systemd/system/polkaudit-${unit}.service"
@@ -197,7 +198,8 @@ chmod +x "$INSTALL_DIR/deploy/alibaba/"*.sh
 
 systemctl daemon-reload
 systemctl enable --now polkaudit-backend polkaudit-indexer
-systemctl enable polkaudit-frontend polkaudit-landing
+systemctl enable polkaudit-frontend
+systemctl disable --now polkaudit-landing 2>/dev/null || true
 
 # --- nginx (api / app / landing hostnames) ---
 cp "$INSTALL_DIR/deploy/alibaba/nginx-polkaudit.conf" /etc/nginx/sites-available/polkaudit
