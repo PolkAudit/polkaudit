@@ -27,12 +27,20 @@ class StatsService:
         total_extrinsics = await self.db.scalar(select(func.count(Extrinsic.id))) or 0
         last_block = await self.db.scalar(select(func.max(ProcessedBlock.block_number))) or 0
 
+        last_prop = await self.db.scalar(select(func.max(Proposal.block_number))) or 0
+        last_vote = await self.db.scalar(select(func.max(Vote.block_number))) or 0
+        last_spend = await self.db.scalar(select(func.max(TreasurySpend.block_number))) or 0
+        last_gov = int(max(last_prop or 0, last_vote or 0, last_spend or 0))
+        last_indexed = int(last_block or 0)
+
         return StatsOverview(
             total_proposals=total_proposals,
             total_votes=total_votes,
             total_treasury_spend=str(total_spend),
             total_blocks_indexed=total_blocks,
             total_extrinsics=total_extrinsics,
-            last_indexed_block=int(last_block),
+            last_indexed_block=last_indexed,
+            last_governance_block=last_gov,
+            governance_lag_blocks=max(0, last_indexed - last_gov) if last_gov else last_indexed,
         )
 

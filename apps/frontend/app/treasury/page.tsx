@@ -47,9 +47,17 @@ export default function TreasuryPage() {
     }
   }, [])
 
-  // Calculate stats
+  const PLANCK = 10_000_000_000 // 1 DOT = 1e10 planck
+  const formatDot = (planck: string | number) => {
+    const n = Number(planck || 0)
+    if (!Number.isFinite(n)) return String(planck)
+    return (n / PLANCK).toLocaleString(undefined, { maximumFractionDigits: 4 })
+  }
+  const truncateAddr = (addr: string) =>
+    addr.length <= 16 ? addr : `${addr.slice(0, 8)}…${addr.slice(-8)}`
+
   const totalSpends = treasurySpends.length
-  const totalValue = treasurySpends.reduce((sum, spend) => sum + Number(spend.value || 0), 0)
+  const totalPlanck = treasurySpends.reduce((sum, spend) => sum + Number(spend.value || 0), 0)
   const lastSpendBlock = treasurySpends.length > 0 ? treasurySpends[0].block_number : 'N/A'
 
   const statCards = [
@@ -60,13 +68,13 @@ export default function TreasuryPage() {
     },
     {
       label: 'Total Value',
-      value: totalValue.toFixed(2),
-      subtitle: 'DOT spent',
+      value: formatDot(totalPlanck),
+      subtitle: 'DOT (from planck)',
       suffix: ' DOT',
     },
     {
       label: 'Last Spend Block',
-      value: lastSpendBlock === 'N/A' ? 'N/A' : `#${lastSpendBlock.toLocaleString()}`,
+      value: lastSpendBlock === 'N/A' ? 'N/A' : `#${Number(lastSpendBlock).toLocaleString()}`,
       subtitle: 'Most recent spend',
     },
   ]
@@ -148,11 +156,14 @@ export default function TreasuryPage() {
                       </TableCell>
                       <TableCell className="text-sm py-3 px-6">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-foreground truncate max-w-xs">
-                            {spend.beneficiary.slice(0, 12)}…{spend.beneficiary.slice(-10)}
+                          <span className="font-mono text-foreground truncate max-w-xs" title={spend.beneficiary}>
+                            {truncateAddr(spend.beneficiary)}
                           </span>
                           <button
-                            onClick={() => copyToClipboard(spend.beneficiary)}
+                            onClick={() => {
+                              copyToClipboard(spend.beneficiary)
+                              toast.success('Address copied')
+                            }}
                             className="p-1 hover:bg-muted rounded transition-colors duration-150"
                             title="Copy address"
                           >
@@ -161,7 +172,8 @@ export default function TreasuryPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm font-mono text-right text-accent py-3 px-6 font-semibold">
-                        {spend.value} DOT
+                        <div>{formatDot(spend.value)} DOT</div>
+                        <div className="text-[10px] text-muted-foreground font-normal">{spend.value} planck</div>
                       </TableCell>
                     </TableRow>
                   ))}

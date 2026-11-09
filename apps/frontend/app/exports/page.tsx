@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { FileSpreadsheet, FileJson, FileText, Download } from 'lucide-react'
 import { toast } from 'sonner'
-import { downloadOverviewJson, downloadProposalsCsv } from '@/lib/api'
+import { downloadOverviewJson, downloadProposalsCsv, downloadTreasuryCsv } from '@/lib/api'
 
 export default function ExportsPage() {
   const [loadingState, setLoadingState] = useState<Record<string, boolean>>({})
@@ -23,6 +23,9 @@ export default function ExportsPage() {
       } else if (exportId === 'overview-json') {
         await downloadOverviewJson()
         toast.success('Overview JSON downloaded')
+      } else if (exportId === 'treasury-csv') {
+        await downloadTreasuryCsv()
+        toast.success('Treasury CSV downloaded')
       } else {
         throw new Error('Unknown export')
       }
@@ -62,9 +65,9 @@ export default function ExportsPage() {
       description: 'Export all treasury spends and beneficiaries',
       icon: FileText,
       format: 'CSV',
-      fields: ['id', 'block', 'beneficiary', 'value', 'status'],
-      badge: 'Coming soon',
-      enabled: false,
+      fields: ['id', 'block', 'beneficiary', 'value_planck'],
+      badge: null,
+      enabled: true,
     },
   ]
 

@@ -182,3 +182,46 @@ class TestChainParser:
 
         assert len(result["extrinsics"]) == 2
         assert len(result["votes"]) == 1
+
+    def test_utility_batch_unwraps_vote(self, parser):
+        chain_parser, mock_substrate = parser
+        inner_vote = {
+            "call_module": "ConvictionVoting",
+            "call_function": "vote",
+            "call_args": [
+                {"name": "poll_index", "value": 12},
+                {"name": "vote", "value": {"Aye": True}},
+            ],
+        }
+        mock_substrate.decode_scale.return_value = _mock_scale_obj(
+            _mock_extrinsic(
+                module="Utility",
+                function="batch_all",
+                args=[{"name": "calls", "value": [inner_vote]}],
+            )
+        )
+
+        result = chain_parser.parse_block(900, ["0xbatch"])
+
+        assert len(result["votes"]) == 1
+        assert result["votes"][0].proposal_index == 12
+        assert result["votes"][0].vote == "Aye"
+
+    def test_event_referenda_submitted(self, parser):
+        chain_parser, mock_substrate = parser
+        mock_substrate.decode_scale.side_effect = Exception("no ext")
+
+        events = [
+            {
+                "event": {
+                    "module_id": "Referenda",
+                    "event_id": "Submitted",
+                    "attributes": {"index": 55, "who": "5ABC"},
+                }
+            }
+        ]
+        result = chain_parser.parse_block(1000, [], events=events)
+
+        assert len(result["proposals"]) == 1
+        assert result["proposals"][0].proposal_index == 55
+        assert result["proposals"][0].method == "Submitted"

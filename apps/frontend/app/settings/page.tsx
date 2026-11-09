@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Header } from '@/components/header'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card } from '@/components/ui/card'
@@ -11,7 +11,22 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle2, AlertCircle, Loader2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
-import { fetchHealth, getApiBase, getApiKeyOverride, hasApiKey, setApiKeyOverride } from '@/lib/api'
+import {
+  authFetch,
+  fetchHealth,
+  getApiBase,
+  getApiKeyOverride,
+  getAuthToken,
+  hasApiKey,
+  setApiKeyOverride,
+} from '@/lib/api'
+
+type ManagedKey = {
+  id: number
+  name: string
+  key_prefix: string
+  revoked_at: string | null
+}
 
 export default function SettingsPage() {
   const [useCustomKey, setUseCustomKey] = useState(() => getApiKeyOverride().enabled)
@@ -22,9 +37,63 @@ export default function SettingsPage() {
     status: 'success' | 'error' | null
     message: string
   }>({ status: null, message: '' })
+  const [managedKeys, setManagedKeys] = useState<ManagedKey[]>([])
+  const [newKeyName, setNewKeyName] = useState('dashboard')
+  const [createdRawKey, setCreatedRawKey] = useState<string | null>(null)
+  const [planName, setPlanName] = useState<string | null>(null)
+  const [signedIn, setSignedIn] = useState(false)
 
   const apiBaseUrl = getApiBase()
   const isApiKeyConfigured = hasApiKey()
+
+  useEffect(() => {
+    const token = getAuthToken()
+    setSignedIn(!!token)
+    if (!token) return
+    ;(async () => {
+      try {
+        const keys = await authFetch<ManagedKey[]>('/api/v1/keys/')
+        setManagedKeys(keys.filter((k) => !k.revoked_at))
+      } catch {
+        /* not signed in or no project */
+      }
+      try {
+        const sub = await authFetch<{ plan?: { name: string; slug: string } }>(
+          '/api/v1/billing/subscription'
+        )
+        setPlanName(sub.plan?.name || sub.plan?.slug || 'Free')
+      } catch {
+        setPlanName(null)
+      }
+    })()
+  }, [])
+
+  const handleCreateKey = async () => {
+    try {
+      const created = await authFetch<{ raw_key: string } & ManagedKey>('/api/v1/keys/', {
+        method: 'POST',
+        body: JSON.stringify({ name: newKeyName || 'default' }),
+      })
+      setCreatedRawKey(created.raw_key)
+      setManagedKeys((prev) => [
+        { id: created.id, name: created.name, key_prefix: created.key_prefix, revoked_at: null },
+        ...prev,
+      ])
+      toast.success('API key created — copy it now')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to create key')
+    }
+  }
+
+  const handleRevokeKey = async (id: number) => {
+    try {
+      await authFetch(`/api/v1/keys/${id}/revoke`, { method: 'POST' })
+      setManagedKeys((prev) => prev.filter((k) => k.id !== id))
+      toast.success('Key revoked')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to revoke key')
+    }
+  }
 
   const handleSaveApiKey = async () => {
     if (useCustomKey && !apiKey.trim()) {
@@ -228,7 +297,78 @@ export default function SettingsPage() {
           </Card>
         </section>
 
-        {/* 4. Product status (no vendor branding) */}
+        {/* 4. Project API keys (JWT account) */}
+        {signedIn && (
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold text-foreground">Project API keys</h2>
+            <Card className="bg-card border-border p-6 space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Create rotatable keys for your project. Raw keys are shown once.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="Key name"
+                  className="sm:max-w-xs"
+                />
+                <Button onClick={handleCreateKey}>Create key</Button>
+              </div>
+              {createdRawKey && (
+                <Alert className="border border-accent/40 bg-accent/5">
+                  <AlertDescription className="text-xs font-mono break-all">
+                    {createdRawKey}
+                    <button
+                      className="ml-2 inline-flex"
+                      onClick={() => copyToClipboard(createdRawKey)}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              <ul className="space-y-2">
+                {managedKeys.map((k) => (
+                  <li
+                    key={k.id}
+                    className="flex items-center justify-between text-sm border border-border rounded px-3 py-2"
+                  >
+                    <span>
+                      <span className="font-medium">{k.name}</span>{' '}
+                      <span className="font-mono text-muted-foreground text-xs">{k.key_prefix}…</span>
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => handleRevokeKey(k.id)}>
+                      Revoke
+                    </Button>
+                  </li>
+                ))}
+                {managedKeys.length === 0 && (
+                  <li className="text-xs text-muted-foreground">No active keys yet.</li>
+                )}
+              </ul>
+            </Card>
+          </section>
+        )}
+
+        {/* 5. Plan (manual billing) */}
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">Plan</h2>
+          <Card className="bg-card border-border p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Current plan</span>
+              <Badge variant="outline">{planName || (signedIn ? 'Free' : 'Demo')}</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Pilots are activated manually after payment (Wise / Razorpay link). Contact{' '}
+              <a className="text-accent hover:underline" href="mailto:hello@polkaudit.xyz">
+                hello@polkaudit.xyz
+              </a>{' '}
+              to upgrade.
+            </p>
+          </Card>
+        </section>
+
+        {/* 6. Product */}
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-foreground">Product</h2>
           <Card className="bg-card border-border p-6">

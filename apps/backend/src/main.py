@@ -51,6 +51,8 @@ from src.api.v1.ai import router as ai_router
 from src.api.v1.compliance import router as compliance_router
 from src.api.v1.chains import router as chains_router
 from src.api.v1.audit import router as audit_router
+from src.api.v1.keys import router as keys_router
+from src.api.v1.billing import router as billing_router
 from src.api.public.router import router as public_router
 
 # Routers
@@ -68,6 +70,8 @@ app.include_router(ai_router, prefix="/api/v1/ai", tags=["ai"])
 app.include_router(compliance_router, prefix="/api/v1/compliance", tags=["compliance"])
 app.include_router(chains_router, prefix="/api/v1/chains", tags=["chains"])
 app.include_router(audit_router, prefix="/api/v1/audit", tags=["audit"])
+app.include_router(keys_router, prefix="/api/v1/keys", tags=["api-keys"])
+app.include_router(billing_router, prefix="/api/v1/billing", tags=["billing"])
 app.include_router(public_router, prefix="/api/public", tags=["public"])
 
 @app.get("/health", tags=["Health"])

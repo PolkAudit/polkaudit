@@ -94,6 +94,8 @@ export interface StatsOverview {
   total_blocks_indexed: number;
   total_extrinsics: number;
   last_indexed_block: number;
+  last_governance_block?: number;
+  governance_lag_blocks?: number;
 }
 
 export interface Proposal {
@@ -160,5 +162,80 @@ export async function downloadOverviewJson() {
   a.click();
   a.remove();
   window.URL.revokeObjectURL(url);
+}
+
+export async function downloadTreasuryCsv() {
+  const apiKey = getEffectiveApiKey();
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/export/treasury/csv`, {
+    headers: apiKey ? { 'X-API-KEY': apiKey } : {},
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error('Treasury export failed');
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `treasury-export-${new Date().toISOString()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+const JWT_STORAGE_KEY = 'polkaudit_jwt';
+
+export function setAuthToken(token: string | null) {
+  if (typeof window === 'undefined') return;
+  if (token) localStorage.setItem(JWT_STORAGE_KEY, token);
+  else localStorage.removeItem(JWT_STORAGE_KEY);
+}
+
+export function getAuthToken(): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem(JWT_STORAGE_KEY) || '';
+}
+
+export async function loginWithPassword(email: string, password: string) {
+  const base = getApiBaseUrl().replace('/api/v1', '');
+  const body = new URLSearchParams();
+  body.set('username', email);
+  body.set('password', password);
+  const res = await fetch(`${base}/api/auth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  if (!res.ok) throw new Error('Login failed');
+  const data = await res.json();
+  setAuthToken(data.access_token);
+  return data;
+}
+
+export async function registerAccount(email: string, password: string) {
+  const base = getApiBaseUrl().replace('/api/v1', '');
+  const res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Registration failed');
+  }
+  return res.json();
+}
+
+export async function authFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const base = getApiBaseUrl().replace('/api/v1', '');
+  const token = getAuthToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
+  const res = await fetch(`${base}${path}`, { ...options, headers, cache: 'no-store' });
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  return res.json() as Promise<T>;
 }
 

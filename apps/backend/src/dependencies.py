@@ -46,30 +46,34 @@ async def get_current_project(
 ) -> int:
     project_id = getattr(request.state, "project_id", None)
     if not project_id:
-        # Fallback to header if middleware didn't catch it (e.g. testing)
         pid = request.headers.get("X-Project-ID")
         if pid:
             project_id = int(pid)
-    
+
+    # Fallback: first project membership (shared-chain SaaS model)
+    if not project_id:
+        result = await db.execute(
+            select(UserProject).where(UserProject.user_id == current_user.id).limit(1)
+        )
+        membership = result.scalars().first()
+        if membership:
+            project_id = membership.project_id
+
     if not project_id:
         raise HTTPException(status_code=400, detail="X-Project-ID header required")
 
-    # Verify Access
-    # Check UserProject table
     result = await db.execute(select(UserProject).where(
         UserProject.user_id == current_user.id,
         UserProject.project_id == project_id
     ))
     user_project = result.scalars().first()
 
-    # Allow Global Admin to access any project? 
-    # Current User model has role="admin" (global).
     if current_user.role == "admin":
         return project_id
 
     if not user_project:
         raise HTTPException(status_code=403, detail="Not authorized for this project")
-    
+
     return project_id
 
 class RoleChecker:

@@ -9,6 +9,8 @@ class StatsOverview(BaseModel):
     total_blocks_indexed: int
     total_extrinsics: int
     last_indexed_block: int
+    last_governance_block: int = 0
+    governance_lag_blocks: int = 0
 
 class DailyActivity(BaseModel):
     date: date

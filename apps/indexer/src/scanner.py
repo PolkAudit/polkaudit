@@ -40,6 +40,22 @@ class FinalizedScanner:
             result = await response.json()
             return result.get("result")
 
+    def _fetch_events_sync(self, block_hash: str) -> list:
+        """Decode System.Events for the block using substrate-interface."""
+        try:
+            events = self.parser.substrate.get_events(block_hash=block_hash)
+            # Normalize to list of dicts
+            out = []
+            for ev in events or []:
+                if hasattr(ev, "value"):
+                    out.append(ev.value if isinstance(ev.value, dict) else {"event": ev.value})
+                elif isinstance(ev, dict):
+                    out.append(ev)
+            return out
+        except Exception as exc:
+            logger.debug("Could not fetch events", error=str(exc))
+            return []
+
     async def get_last_processed_block(self):
         async with self.session_maker() as session:
             result = await session.execute(select(func.max(ProcessedBlock.block_number)))
@@ -81,38 +97,47 @@ class FinalizedScanner:
                 if existing:
                     return
 
-                # Decode and extracting events
+                # Decode extrinsics + system events
                 try:
-                    # Run parsing in executor to avoid blocking async loop
                     loop = asyncio.get_running_loop()
+                    events = await loop.run_in_executor(
+                        None, self._fetch_events_sync, block_hash
+                    )
                     parsed_data = await asyncio.wait_for(
                         loop.run_in_executor(
                             None,
                             self.parser.parse_block,
                             block_number,
                             extrinsics,
+                            events,
                         ),
                         timeout=120,
                     )
-                    
-                # Log findings
+
                     p_count = len(parsed_data['proposals'])
                     v_count = len(parsed_data['votes'])
                     t_count = len(parsed_data['treasury_spends'])
                     e_count = len(parsed_data['extrinsics'])
-                    
+
                     if p_count > 0 or v_count > 0 or t_count > 0:
-                        logger.info("Found events", block=block_number, proposals=p_count, votes=v_count, spends=t_count)
+                        logger.info(
+                            "Found governance",
+                            block=block_number,
+                            proposals=p_count,
+                            votes=v_count,
+                            spends=t_count,
+                            events=len(events or []),
+                        )
 
                     # --- Save Base Entities (Atomic Transaction) ---
-                    
+
                     # 1. Block
                     block_entity = Block(
                         block_number=block_number,
                         block_hash=block_hash,
                         parent_hash=block_data.get("block", {}).get("header", {}).get("parentHash", "0x"),
                         extrinsics_count=len(extrinsics),
-                        events_count=0 # Events parsing later
+                        events_count=len(events or []),
                     )
                     session.add(block_entity)
 

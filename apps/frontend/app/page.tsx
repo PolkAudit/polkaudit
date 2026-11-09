@@ -95,18 +95,25 @@ export default async function OverviewPage() {
                   </h3>
                   <p className="text-sm text-muted-foreground max-w-sm">
                     Blocks and extrinsics are indexing; proposals appear when OpenGov activity is found.
+                    {stats.last_governance_block
+                      ? ` Last governance activity at block #${stats.last_governance_block}.`
+                      : ''}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {proposals.slice(0, 5).map((p: Proposal) => (
-                    <div key={p.id} className="flex items-center justify-between border-b pb-3 last:border-0">
+                    <a
+                      key={p.id}
+                      href={`/proposals/${p.proposal_index}`}
+                      className="flex items-center justify-between border-b pb-3 last:border-0 hover:opacity-90"
+                    >
                       <div className="space-y-1">
                         <p className="text-sm font-medium leading-none">Proposal #{p.proposal_index}</p>
                         <p className="text-xs text-muted-foreground">{p.section}.{p.method}</p>
                       </div>
                       <div className="text-sm font-medium">{p.status}</div>
-                    </div>
+                    </a>
                   ))}
                 </div>
               )}

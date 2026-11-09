@@ -96,28 +96,36 @@ export default function ProposalDetailPage() {
     )
   }
 
-  const timelineSteps = [
-    {
-      label: 'Submitted',
-      description: `Block #${proposal.block_number}`,
-      completed: true,
-      current: false,
-    },
-    {
-      label: 'Voting',
-      description: 'Active governance phase',
-      completed: false,
-      current: true,
-    },
-    {
-      label: 'Executed',
-      description: 'Pending outcome',
-      completed: false,
-      current: false,
-    },
-  ]
+  const timelineSteps =
+    proposal.timeline?.length > 0
+      ? proposal.timeline.map((step: any) => ({
+          label: step.label,
+          description: step.description,
+          completed: !!step.completed,
+          current: !!step.current,
+        }))
+      : [
+          {
+            label: 'Submitted',
+            description: `Block #${proposal.block_number}`,
+            completed: true,
+            current: false,
+          },
+          {
+            label: 'Voting',
+            description: `${proposal.votes?.length || 0} vote(s)`,
+            completed: (proposal.votes?.length || 0) > 0,
+            current: true,
+          },
+          {
+            label: 'Outcome',
+            description: proposal.outcome || proposal.status || 'Pending',
+            completed: ['Approved', 'Rejected'].includes(proposal.status || ''),
+            current: false,
+          },
+        ]
 
-  const voteColors = {
+  const voteColors: Record<string, string> = {
     Aye: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
     Nay: 'bg-red-500/20 text-red-300 border-red-500/30',
   }
@@ -221,24 +229,49 @@ export default function ProposalDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {proposal.votes.map((vote, idx) => (
-                      <TableRow key={idx} className="border-b-border">
-                        <TableCell>
-                          <div className="text-xs font-mono text-muted-foreground">
-                            {truncateAddress(vote.voter, 6)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={voteColors[vote.vote]}
-                            size="sm"
-                          >
-                            {vote.vote}
-                          </Badge>
+                    {(proposal.votes || []).length === 0 ? (
+                      <TableRow className="border-b-border">
+                        <TableCell colSpan={2} className="text-xs text-muted-foreground py-6 text-center">
+                          No votes indexed for this proposal yet
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      (proposal.votes || []).map((vote: any, idx: number) => (
+                        <TableRow key={vote.id || idx} className="border-b-border">
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-mono text-muted-foreground">
+                                {truncateAddress(vote.voter, 6)}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0"
+                                onClick={() => copyToClipboard(vote.voter, toast)}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                              <Badge
+                                variant="outline"
+                                className={voteColors[vote.vote] || 'bg-muted text-muted-foreground'}
+                                size="sm"
+                              >
+                                {vote.vote}
+                              </Badge>
+                              {vote.balance && vote.balance !== '0' && (
+                                <span className="text-[10px] font-mono text-muted-foreground">
+                                  {vote.balance}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -263,7 +296,7 @@ export default function ProposalDetailPage() {
                 <CollapsibleContent>
                   <div className="p-6 bg-input/50 border-t border-border">
                     <pre className="text-xs font-mono text-muted-foreground overflow-x-auto max-h-96 overflow-y-auto">
-                      {JSON.stringify(proposal.rawPayload, null, 2)}
+                      {JSON.stringify(proposal.raw || proposal, null, 2)}
                     </pre>
                   </div>
                 </CollapsibleContent>
