@@ -54,6 +54,15 @@ as_user "
   git reset --hard origin/${BRANCH}
 "
 
+# After reset, this script file may be a new inode. Re-exec once so new steps
+# (e.g. console install) run — bash keeps the pre-reset FD otherwise.
+if [[ -z "${POLKAUDIT_REMOTE_DEPLOY_REEXEC:-}" ]]; then
+  export POLKAUDIT_REMOTE_DEPLOY_REEXEC=1
+  export INSTALL_DIR BRANCH ARTIFACT_DIR RUN_USER
+  echo "== re-exec remote-deploy.sh @ $(git -C "$INSTALL_DIR" rev-parse --short HEAD) =="
+  exec bash "$INSTALL_DIR/deploy/alibaba/remote-deploy.sh"
+fi
+
 echo "== indexer deps =="
 as_user "
   cd '$INSTALL_DIR/apps/indexer'
