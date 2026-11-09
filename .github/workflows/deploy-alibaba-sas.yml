@@ -1,0 +1,83 @@
+# Deploy PolkAudit backend + indexer to Alibaba Cloud Simple Application Server via SSH.
+#
+# One-time server bootstrap (manual):
+#   docs/ALIBABA_SAS_DEPLOY.md  →  deploy/alibaba/setup-sas.sh
+#
+# Required GitHub repository secrets:
+#   SAS_HOST     — public IP or hostname of the SAS instance
+#   SAS_USER     — SSH user (usually ubuntu)
+#   SAS_SSH_KEY  — private key (PEM) with access to the instance
+#
+# Optional secrets:
+#   SAS_PORT     — SSH port (default 22)
+#   SAS_BRANCH   — git branch to deploy (default main)
+
+name: Deploy Alibaba SAS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/**'
+      - 'apps/indexer/**'
+      - 'deploy/alibaba/**'
+      - '.github/workflows/deploy-alibaba-sas.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-alibaba-sas
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SSH deploy (API + indexer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check required secrets
+        env:
+          SAS_HOST: ${{ secrets.SAS_HOST }}
+          SAS_USER: ${{ secrets.SAS_USER }}
+          SAS_SSH_KEY: ${{ secrets.SAS_SSH_KEY }}
+        run: |
+          missing=0
+          for v in SAS_HOST SAS_USER SAS_SSH_KEY; do
+            if [ -z "${!v}" ]; then
+              echo "::error::$v secret is not set"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Add SAS_HOST, SAS_USER, SAS_SSH_KEY under Repo → Settings → Secrets and variables → Actions."
+            echo "See docs/ALIBABA_SAS_DEPLOY.md"
+            exit 1
+          fi
+
+      - name: Configure SSH
+        env:
+          SAS_SSH_KEY: ${{ secrets.SAS_SSH_KEY }}
+          SAS_HOST: ${{ secrets.SAS_HOST }}
+          SAS_PORT: ${{ secrets.SAS_PORT }}
+        run: |
+          PORT="${SAS_PORT:-22}"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SAS_SSH_KEY" > ~/.ssh/sas_key
+          chmod 600 ~/.ssh/sas_key
+          ssh-keyscan -p "$PORT" -H "$SAS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy over SSH
+        env:
+          SAS_HOST: ${{ secrets.SAS_HOST }}
+          SAS_USER: ${{ secrets.SAS_USER }}
+          SAS_PORT: ${{ secrets.SAS_PORT }}
+          SAS_BRANCH: ${{ secrets.SAS_BRANCH }}
+        run: |
+          PORT="${SAS_PORT:-22}"
+          BRANCH="${SAS_BRANCH:-main}"
+          ssh -i ~/.ssh/sas_key \
+            -p "$PORT" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            "${SAS_USER}@${SAS_HOST}" \
+            "sudo BRANCH='${BRANCH}' RUN_USER='${SAS_USER}' bash /opt/polkaudit/deploy/alibaba/remote-deploy.sh"

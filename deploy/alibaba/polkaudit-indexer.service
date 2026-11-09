@@ -1,0 +1,20 @@
+[Unit]
+Description=PolkAudit Indexer (Polkadot block scanner)
+Documentation=https://github.com/ViSa-Innovations/polkaudit/blob/main/docs/ALIBABA_SAS_DEPLOY.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/polkaudit/apps/indexer
+EnvironmentFile=/etc/polkaudit/indexer.env
+Environment=PYTHONPATH=/opt/polkaudit/apps/indexer
+ExecStart=/opt/polkaudit/apps/indexer/venv/bin/python -m src.main
+Restart=always
+RestartSec=10
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

@@ -55,6 +55,7 @@ Central index for developers, treasury voters, and ecosystem partners.
 |----------|-------------|
 | [HYBRID_DEPLOYMENT.md](HYBRID_DEPLOYMENT.md) | Oracle VM + GCP Cloud Run + Neon |
 | [GCP_CLOUD_BUILD.md](GCP_CLOUD_BUILD.md) | Cloud Build triggers and Cloud Run |
+| [ALIBABA_SAS_DEPLOY.md](ALIBABA_SAS_DEPLOY.md) | Alibaba SAS + local Postgres + GitHub Actions CD |
 | [INDEXER_FREE_HOSTING.md](INDEXER_FREE_HOSTING.md) | Free VM options for indexer |
 | [DEMO_HOSTING_GUIDE.md](DEMO_HOSTING_GUIDE.md) | Public demo launch checklist |
 | [PUBLIC_PRIVATE_REPO_GUIDE.md](PUBLIC_PRIVATE_REPO_GUIDE.md) | What can be public vs private |

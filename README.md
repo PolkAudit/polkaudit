@@ -611,6 +611,7 @@ Backend and indexer normalize URLs and pass `ssl=require` for `neon.tech` hosts.
 | [apps/frontend/](apps/frontend/) | Dashboard UI (canonical; replaces `apps/dashboard` for new work) |
 | [docs/HYBRID_DEPLOYMENT.md](docs/HYBRID_DEPLOYMENT.md) | **Oracle indexer + GCP API/UI + Neon** |
 | [docs/GCP_CLOUD_BUILD.md](docs/GCP_CLOUD_BUILD.md) | Cloud Build trigger + Cloud Run deploy |
+| [docs/ALIBABA_SAS_DEPLOY.md](docs/ALIBABA_SAS_DEPLOY.md) | Alibaba SAS API/indexer + GitHub Actions CD |
 | [docs/INDEXER_FREE_HOSTING.md](docs/INDEXER_FREE_HOSTING.md) | Free VM hosting (Oracle or GCP e2-micro) |
 | [docs/DEMO_HOSTING_GUIDE.md](docs/DEMO_HOSTING_GUIDE.md) | Public demo hosting and discussion launch checklist |
 | [docs/PUBLIC_PRIVATE_REPO_GUIDE.md](docs/PUBLIC_PRIVATE_REPO_GUIDE.md) | Public vs private file guide before opening the repo |

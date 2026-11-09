@@ -1,0 +1,20 @@
+[Unit]
+Description=PolkAudit Backend API (FastAPI)
+Documentation=https://github.com/ViSa-Innovations/polkaudit/blob/main/docs/ALIBABA_SAS_DEPLOY.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/polkaudit/apps/backend
+EnvironmentFile=/etc/polkaudit/backend.env
+Environment=PYTHONPATH=/opt/polkaudit/apps/backend
+ExecStart=/opt/polkaudit/apps/backend/venv/bin/python -m uvicorn src.main:app --host ${HOST} --port ${PORT}
+Restart=always
+RestartSec=5
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target
