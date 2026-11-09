@@ -60,6 +60,8 @@ jobs:
         working-directory: apps/console
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_API_KEY: ${{ secrets.NEXT_PUBLIC_API_KEY }}
+          API_KEY: ${{ secrets.NEXT_PUBLIC_API_KEY }}
           NEXT_PUBLIC_APP_URL: https://app.polkaudit.xyz
         run: |
           export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.polkaudit.xyz/api/v1}"

@@ -42,6 +42,11 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class MessageResponse(BaseModel):
     message: str
 
@@ -139,6 +144,22 @@ async def reset_password(
         )
     auth_service = AuthService(db)
     await auth_service.set_password(user, body.password)
+    return MessageResponse(message="Password updated")
+
+
+@router.post("/change-password", response_model=MessageResponse)
+async def change_password(
+    body: ChangePasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    auth_service = AuthService(db)
+    ok = await auth_service.authenticate_user(
+        current_user.email, body.current_password
+    )
+    if not ok:
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    await auth_service.set_password(current_user, body.new_password)
     return MessageResponse(message="Password updated")
 
 

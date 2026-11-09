@@ -159,6 +159,10 @@ fix_env_perms /etc/polkaudit/frontend.env
 
 if [[ ! -f /etc/polkaudit/console.env ]]; then
   cp "$INSTALL_DIR/deploy/alibaba/console.env.example" /etc/polkaudit/console.env
+  if [[ -n "$API_KEY" ]]; then
+    sed -i "s|^API_KEY=.*|API_KEY=${API_KEY}|" /etc/polkaudit/console.env
+    sed -i "s|^NEXT_PUBLIC_API_KEY=.*|NEXT_PUBLIC_API_KEY=${API_KEY}|" /etc/polkaudit/console.env
+  fi
 fi
 fix_env_perms /etc/polkaudit/console.env
 

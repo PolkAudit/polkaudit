@@ -1,25 +1,32 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { ConsoleShell } from '@/components/console-shell'
+import { Header } from '@/components/header'
+import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, Copy, Loader2 } from 'lucide-react'
+import { CheckCircle2, Copy, Loader2, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   authFetch,
+  changePassword,
+  clearSession,
   fetchCurrentUser,
+  fetchHealth,
+  getApiBase,
+  getApiKeyOverride,
   getAuthToken,
-  getDashboardUrl,
+  hasApiKey,
   resendVerification,
+  setApiKeyOverride,
   startCheckout,
   type AuthUser,
 } from '@/lib/api'
+import { useRouter } from 'next/navigation'
 
 type ManagedKey = {
   id: number
@@ -39,6 +46,21 @@ export default function SettingsPage() {
   const [resending, setResending] = useState(false)
   const [checkoutBusy, setCheckoutBusy] = useState<'pilot' | 'pro' | null>(null)
   const [loading, setLoading] = useState(true)
+  const [useCustomKey, setUseCustomKey] = useState(() => getApiKeyOverride().enabled)
+  const [apiKey, setApiKey] = useState(() => getApiKeyOverride().key)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isTesting, setIsTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{
+    status: 'success' | 'error' | null
+    message: string
+  }>({ status: null, message: '' })
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
+
+  const apiBaseUrl = getApiBase()
+  const isApiKeyConfigured = hasApiKey()
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -135,21 +157,79 @@ export default function SettingsPage() {
     }
   }
 
+  const handleSaveApiKey = async () => {
+    if (useCustomKey && !apiKey.trim()) {
+      toast.error('API key cannot be empty')
+      return
+    }
+    setIsSaving(true)
+    try {
+      setApiKeyOverride(apiKey.trim(), useCustomKey)
+      toast.success('API configuration saved')
+      if (!useCustomKey) setApiKey('')
+    } catch {
+      toast.error('Failed to save API configuration')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleTestConnection = async () => {
+    setIsTesting(true)
+    setTestResult({ status: null, message: '' })
+    try {
+      await fetchHealth()
+      setTestResult({ status: 'success', message: 'Backend healthy' })
+      toast.success('Connection test passed')
+    } catch (error) {
+      setTestResult({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Unable to reach backend',
+      })
+      toast.error('Connection test error')
+    } finally {
+      setIsTesting(false)
+    }
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+    setChangingPassword(true)
+    try {
+      await changePassword(currentPassword, newPassword)
+      toast.success('Password updated')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not change password')
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     toast.success('Copied')
   }
 
-  return (
-    <ConsoleShell>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Verification, API keys, and plan upgrades.
-          </p>
-        </div>
+  const signOut = () => {
+    clearSession()
+    router.push('/login')
+  }
 
+  return (
+    <DashboardLayout>
+      <Header title="Settings" showSearch={false} />
+      <main className="p-6 max-w-2xl space-y-6">
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -170,14 +250,7 @@ export default function SettingsPage() {
                     disabled={resending}
                     onClick={handleResendVerification}
                   >
-                    {resending ? (
-                      <>
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        Sending…
-                      </>
-                    ) : (
-                      'Resend verification'
-                    )}
+                    {resending ? 'Sending…' : 'Resend verification'}
                   </Button>
                 </div>
               </Alert>
@@ -187,10 +260,75 @@ export default function SettingsPage() {
               <Alert className="border border-emerald-600/30 bg-emerald-600/10">
                 <AlertDescription className="text-emerald-400 text-sm flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4" />
-                  Email verified
+                  Signed in as {user.email} · Email verified
                 </AlertDescription>
               </Alert>
             )}
+
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold text-foreground">Change password</h2>
+              <Card className="bg-card border-border p-6">
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase">
+                      Current password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="password"
+                        required
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="pl-9"
+                        autoComplete="current-password"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase">
+                      New password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="password"
+                        required
+                        minLength={8}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="pl-9"
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase">
+                      Confirm new password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="password"
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="pl-9"
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={changingPassword}>
+                      {changingPassword ? 'Updating…' : 'Update password'}
+                    </Button>
+                    <Button type="button" variant="outline" asChild>
+                      <a href="/forgot-password">Forgot password?</a>
+                    </Button>
+                  </div>
+                </form>
+              </Card>
+            </section>
 
             <section className="space-y-3">
               <h2 className="text-lg font-semibold text-foreground">Plan</h2>
@@ -199,10 +337,6 @@ export default function SettingsPage() {
                   <span className="text-sm text-muted-foreground">Current plan</span>
                   <Badge variant="outline">{planName || 'Free'}</Badge>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Upgrade via Razorpay Payment Links (INR). If checkout is not configured, you get a
-                  contact fallback.
-                </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     variant="outline"
@@ -211,53 +345,21 @@ export default function SettingsPage() {
                     }
                     onClick={() => handleUpgrade('pilot')}
                   >
-                    {checkoutBusy === 'pilot' ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Starting…
-                      </>
-                    ) : (
-                      'Upgrade to Pilot'
-                    )}
+                    {checkoutBusy === 'pilot' ? 'Starting…' : 'Upgrade to Pilot'}
                   </Button>
                   <Button
                     disabled={checkoutBusy !== null || planSlug === 'pro'}
                     onClick={() => handleUpgrade('pro')}
                   >
-                    {checkoutBusy === 'pro' ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Starting…
-                      </>
-                    ) : (
-                      'Upgrade to Pro'
-                    )}
+                    {checkoutBusy === 'pro' ? 'Starting…' : 'Upgrade to Pro'}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Or email{' '}
-                  <a className="text-accent hover:underline" href="mailto:hello@polkaudit.xyz">
-                    hello@polkaudit.xyz
-                  </a>
-                </p>
               </Card>
             </section>
 
             <section className="space-y-3">
               <h2 className="text-lg font-semibold text-foreground">Project API keys</h2>
               <Card className="bg-card border-border p-6 space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  Create rotatable keys for your project. Raw keys are shown once. Use them on{' '}
-                  <a
-                    className="text-accent hover:underline"
-                    href={getDashboardUrl()}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    app.polkaudit.xyz
-                  </a>
-                  .
-                </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     value={newKeyName}
@@ -305,14 +407,88 @@ export default function SettingsPage() {
               </Card>
             </section>
 
-            <p className="text-xs text-muted-foreground">
-              <Link href="/" className="text-accent hover:underline">
-                Back to home
-              </Link>
-            </p>
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold text-foreground">Environment</h2>
+              <Card className="bg-card border-border p-6 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground uppercase">
+                    API Base URL
+                  </label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <code className="flex-1 px-3 py-2 bg-muted/50 border border-border rounded text-sm font-mono break-all">
+                      {apiBaseUrl}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(apiBaseUrl)}
+                      className="p-2 hover:bg-muted rounded"
+                    >
+                      <Copy className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground uppercase">
+                    Environment API Key
+                  </label>
+                  <div className="mt-2">
+                    {isApiKeyConfigured ? (
+                      <Badge className="bg-emerald-600/20 text-emerald-400 border-emerald-600/40">
+                        Configured
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Not set</Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <div>
+                    <p className="text-sm font-medium">Use custom API key</p>
+                    <p className="text-xs text-muted-foreground">Override for governance fetches</p>
+                  </div>
+                  <Switch checked={useCustomKey} onCheckedChange={setUseCustomKey} />
+                </div>
+                {useCustomKey && (
+                  <Input
+                    type="password"
+                    placeholder="API key"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                  />
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={handleSaveApiKey} disabled={isSaving}>
+                    {isSaving ? 'Saving…' : 'Save configuration'}
+                  </Button>
+                  <Button variant="outline" onClick={handleTestConnection} disabled={isTesting}>
+                    {isTesting ? 'Testing…' : 'Test connection'}
+                  </Button>
+                  <Button variant="ghost" onClick={signOut}>
+                    Sign out
+                  </Button>
+                </div>
+                {testResult.status && (
+                  <Alert
+                    className={
+                      testResult.status === 'success'
+                        ? 'border-emerald-600/30 bg-emerald-600/10'
+                        : 'border-red-600/30 bg-red-600/10'
+                    }
+                  >
+                    <AlertDescription
+                      className={
+                        testResult.status === 'success' ? 'text-emerald-400' : 'text-red-400'
+                      }
+                    >
+                      {testResult.message}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </Card>
+            </section>
           </>
         )}
-      </div>
-    </ConsoleShell>
+      </main>
+    </DashboardLayout>
   )
 }

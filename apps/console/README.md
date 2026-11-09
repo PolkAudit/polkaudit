@@ -1,11 +1,13 @@
 # PolkAudit Console
 
-SaaS account UI for PolkAudit platform admins: login, email verification, password reset, API keys, and Pilot/Pro checkout.
+Platform admin console for PolkAudit — same modules as the governance dashboard
+(Overview, Proposals, Treasury, Alerts, Exports) plus Settings (billing, API keys,
+change password).
 
 Public sign-up is **disabled**. Create users with `POST /api/admin/users` (admin JWT).
 
-Bootstrap admin is seeded by migration (`admin@polkaudit.xyz`, role `admin`, email pre-verified).
-Forgot / reset password remain available on `/forgot-password` and `/reset-password`.
+Bootstrap admin is seeded by migration (`admin@polkaudit.xyz`). Forgot / reset /
+change password are available in Settings and auth pages.
 
 - **Prod:** `https://console.polkaudit.xyz` on **Alibaba SAS** (`polkaudit-console`, port `3001`)
 - **API:** same backend as the dashboard (`NEXT_PUBLIC_API_URL`)
