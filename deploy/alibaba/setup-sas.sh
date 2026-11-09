@@ -157,6 +157,11 @@ if [[ ! -f /etc/polkaudit/frontend.env ]]; then
 fi
 fix_env_perms /etc/polkaudit/frontend.env
 
+if [[ ! -f /etc/polkaudit/console.env ]]; then
+  cp "$INSTALL_DIR/deploy/alibaba/console.env.example" /etc/polkaudit/console.env
+fi
+fix_env_perms /etc/polkaudit/console.env
+
 if [[ ! -f /etc/polkaudit/landing.env ]]; then
   cp "$INSTALL_DIR/deploy/alibaba/landing.env.example" /etc/polkaudit/landing.env
 fi
@@ -186,9 +191,9 @@ sudo -u "$RUN_USER" bash -c "
   ./venv/bin/alembic upgrade head
 "
 
-# --- systemd (API + indexer now; dashboard after first Actions deploy) ---
+# --- systemd (API + indexer now; dashboard/console after first Actions deploy) ---
 # Landing stays on Vercel — do not enable polkaudit-landing on SAS.
-for unit in indexer backend frontend; do
+for unit in indexer backend frontend console; do
   sed "s/User=polkaudit/User=${RUN_USER}/; s/Group=polkaudit/Group=${RUN_USER}/; s/User=ubuntu/User=${RUN_USER}/; s/Group=ubuntu/Group=${RUN_USER}/" \
     "$INSTALL_DIR/deploy/alibaba/polkaudit-${unit}.service" \
     > "/etc/systemd/system/polkaudit-${unit}.service"
@@ -198,10 +203,10 @@ chmod +x "$INSTALL_DIR/deploy/alibaba/"*.sh
 
 systemctl daemon-reload
 systemctl enable --now polkaudit-backend polkaudit-indexer
-systemctl enable polkaudit-frontend
+systemctl enable polkaudit-frontend polkaudit-console
 systemctl disable --now polkaudit-landing 2>/dev/null || true
 
-# --- nginx (api / app / landing hostnames) ---
+# --- nginx (api / app / console) ---
 cp "$INSTALL_DIR/deploy/alibaba/nginx-polkaudit.conf" /etc/nginx/sites-available/polkaudit
 ln -sfn /etc/nginx/sites-available/polkaudit /etc/nginx/sites-enabled/polkaudit
 rm -f /etc/nginx/sites-enabled/default
@@ -220,13 +225,14 @@ echo "=== Setup complete (API + indexer) ==="
 echo "  Backend:   systemctl status polkaudit-backend"
 echo "  Indexer:   systemctl status polkaudit-indexer"
 echo "  Health:    curl -s http://127.0.0.1:8080/health"
-echo "  Envs:      /etc/polkaudit/{backend,indexer,frontend,landing}.env"
+echo "  Envs:      /etc/polkaudit/{backend,indexer,frontend,console}.env"
 echo "  Prune:     /etc/cron.d/polkaudit-prune"
 echo "  Swap:      enabled (2G) for 2 GiB SAS"
 echo ""
 echo "Next:"
 echo "  1) Add GitHub secrets SAS_HOST / SAS_USER / SAS_SSH_KEY"
-echo "  2) Push or run workflow 'Deploy Alibaba SAS' — builds Next.js in CI and deploys UI"
-echo "  3) Point DNS: app.polkaudit.xyz + api.polkaudit.xyz → this IP (indexer stays local; no public DNS)"
-echo "  4) sudo certbot --nginx -d app.polkaudit.xyz -d api.polkaudit.xyz"
+echo "  2) Push or run workflow 'Deploy Alibaba SAS' — builds dashboard + console in CI"
+echo "  3) Point DNS: app + api + console → this IP (landing stays on Vercel)"
+echo "  4) sudo certbot --nginx -d app.polkaudit.xyz -d api.polkaudit.xyz -d console.polkaudit.xyz"
+echo "  5) APP_PUBLIC_URL=https://console.polkaudit.xyz in /etc/polkaudit/backend.env"
 echo "See docs/ALIBABA_SAS_DEPLOY.md"

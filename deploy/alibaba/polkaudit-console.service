@@ -1,0 +1,20 @@
+[Unit]
+Description=PolkAudit Console (Next.js account UI)
+Documentation=https://github.com/PolkAudit/polkaudit/blob/main/docs/ALIBABA_SAS_DEPLOY.md
+After=network-online.target polkaudit-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=polkaudit
+Group=polkaudit
+WorkingDirectory=/opt/polkaudit/apps/console/.next/standalone
+EnvironmentFile=/etc/polkaudit/console.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+# Keep lean on 2 GiB SAS (dashboard already uses ~512M)
+MemoryMax=384M
+
+[Install]
+WantedBy=multi-user.target

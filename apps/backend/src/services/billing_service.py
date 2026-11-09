@@ -30,12 +30,17 @@ class BillingService:
         result = await self.db.execute(select(Plan).where(Plan.id == sub.plan_id))
         return result.scalars().first()
 
+    async def get_plan_by_slug(self, slug: str) -> Optional[Plan]:
+        result = await self.db.execute(select(Plan).where(Plan.slug == slug))
+        return result.scalars().first()
+
     async def set_subscription(
         self,
         project_id: int,
         plan_slug: str,
         status: str = "active",
         billing_note: str | None = None,
+        razorpay_payment_link_id: str | None = None,
     ) -> Subscription:
         plan_result = await self.db.execute(select(Plan).where(Plan.slug == plan_slug))
         plan = plan_result.scalars().first()
@@ -52,6 +57,7 @@ class BillingService:
             plan_id=plan.id,
             status=status,
             billing_note=billing_note,
+            razorpay_payment_link_id=razorpay_payment_link_id,
         )
         self.db.add(sub)
         await self.db.commit()

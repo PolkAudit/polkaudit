@@ -83,10 +83,11 @@ install_next_app() {
   fi
 }
 install_next_app frontend
+install_next_app console
 # Landing stays on Vercel — do not install/start on SAS
 
 echo "== refresh systemd units =="
-for unit in indexer backend frontend; do
+for unit in indexer backend frontend console; do
   src="$INSTALL_DIR/deploy/alibaba/polkaudit-${unit}.service"
   if [[ -f "$src" ]]; then
     as_root "sed 's/User=polkaudit/User=${RUN_USER}/; s/Group=polkaudit/Group=${RUN_USER}/; s/User=ubuntu/User=${RUN_USER}/; s/Group=ubuntu/Group=${RUN_USER}/' '$src' > '/etc/systemd/system/polkaudit-${unit}.service'"
@@ -104,11 +105,15 @@ if [[ -f "$INSTALL_DIR/deploy/alibaba/nginx-polkaudit.conf" ]]; then
     nginx -t
 
     if [[ -d /etc/letsencrypt/live/app.polkaudit.xyz ]]; then
-      echo 'nginx: reinstalling TLS certs for app + api'
+      echo 'nginx: reinstalling TLS for app + api + console (if cert covers them)'
       certbot --nginx \
-        -d app.polkaudit.xyz -d api.polkaudit.xyz \
+        -d app.polkaudit.xyz -d api.polkaudit.xyz -d console.polkaudit.xyz \
         --non-interactive --reinstall --redirect \
         --agree-tos --register-unsafely-without-email \
+        || certbot --nginx \
+          -d app.polkaudit.xyz -d api.polkaudit.xyz \
+          --non-interactive --reinstall --redirect \
+          --agree-tos --register-unsafely-without-email \
         || certbot install --cert-name app.polkaudit.xyz --nginx --non-interactive || true
     else
       echo 'WARNING: no certs in /etc/letsencrypt/live/app.polkaudit.xyz — run certbot once on the host'
@@ -121,10 +126,11 @@ fi
 
 as_root "
   systemctl daemon-reload
-  systemctl enable polkaudit-backend polkaudit-indexer polkaudit-frontend
+  systemctl enable polkaudit-backend polkaudit-indexer polkaudit-frontend polkaudit-console
   systemctl disable --now polkaudit-landing 2>/dev/null || true
   systemctl restart polkaudit-backend polkaudit-indexer
   if [[ -f '$INSTALL_DIR/apps/frontend/.next/standalone/server.js' ]]; then systemctl restart polkaudit-frontend; fi
+  if [[ -f '$INSTALL_DIR/apps/console/.next/standalone/server.js' ]]; then systemctl restart polkaudit-console; fi
 "
 
 echo "== health checks =="
@@ -132,7 +138,8 @@ sleep 3
 curl -fsS "http://127.0.0.1:8080/health"
 echo ""
 curl -fsS -o /dev/null -w "frontend:%{http_code}\n" "http://127.0.0.1:3000/" || echo "frontend: not up yet"
+curl -fsS -o /dev/null -w "console:%{http_code}\n" "http://127.0.0.1:3001/" || echo "console: not up yet"
 curl -fsS -o /dev/null -w "https_app:%{http_code}\n" --connect-timeout 5 "https://127.0.0.1/" -H "Host: app.polkaudit.xyz" -k \
   || echo "https_app: not listening (certbot may need first-time run)"
-systemctl is-active polkaudit-backend polkaudit-indexer polkaudit-frontend nginx || true
-echo "Deploy OK @ $(git -C "$INSTALL_DIR" rev-parse --short HEAD) (landing = Vercel)"
+systemctl is-active polkaudit-backend polkaudit-indexer polkaudit-frontend polkaudit-console nginx || true
+echo "Deploy OK @ $(git -C "$INSTALL_DIR" rev-parse --short HEAD) (landing = Vercel; console on SAS)"

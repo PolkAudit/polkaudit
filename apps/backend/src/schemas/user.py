@@ -14,6 +14,7 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     id: int
     created_at: datetime
+    email_verified_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

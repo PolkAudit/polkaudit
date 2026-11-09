@@ -40,3 +40,9 @@ class AuthService:
         if not verify_password(password, user.hashed_password):
             return None
         return user
+
+    async def set_password(self, user: User, password: str) -> User:
+        user.hashed_password = get_password_hash(password)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user

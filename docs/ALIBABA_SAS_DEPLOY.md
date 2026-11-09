@@ -1,19 +1,21 @@
 # Alibaba Cloud Simple Application Server — app stack
 
-Host **dashboard**, **API**, **indexer**, and **PostgreSQL** on one SAS instance.  
+Host **dashboard**, **console**, **API**, **indexer**, and **PostgreSQL** on one SAS instance.  
 **Landing** (`polkaudit.xyz`) stays on **Vercel**.
 
-Deploy updates with **GitHub Actions** (dashboard built in CI; Python services updated over SSH).
+Deploy updates with **GitHub Actions** (dashboard + console built in CI; Python services updated over SSH).
 
 ```text
                     DNS
      polkaudit.xyz ───────────► Vercel (landing)
      app.polkaudit.xyz ───────┐
+     console.polkaudit.xyz ───┤
      api.polkaudit.xyz ───────┤
                               ▼
 GitHub Actions                nginx (SAS)
-  build dashboard ──scp──────►├── :3000 frontend (dashboard)
-  SSH remote-deploy.sh        ├── :8080 backend API
+  build UI ──scp─────────────►├── :3000 frontend (dashboard)
+  SSH remote-deploy.sh        ├── :3001 console (account/billing)
+                              ├── :8080 backend API
                               ├── indexer (systemd, localhost only)
                               └── PostgreSQL 127.0.0.1
 ```
@@ -22,16 +24,16 @@ GitHub Actions                nginx (SAS)
 
 ## RAM warning (2 GiB plan)
 
-Running **Next.js dashboard + FastAPI + indexer + Postgres** on **2 GiB** is tight (landing on Vercel helps).
+Running **two Next.js apps + FastAPI + indexer + Postgres** on **2 GiB** is tight (landing on Vercel helps).
 
 Mitigations baked into setup:
 
-- Dashboard built in **GitHub Actions** (not on the VM)
-- `output: 'standalone'` + memory caps on systemd units
+- Dashboard + console built in **GitHub Actions** (not on the VM)
+- `output: 'standalone'` + memory caps (`frontend` 512M, `console` 384M)
 - **2G swapfile** created by `setup-sas.sh`
 - Indexer tip-window + nightly prune
 
-If you see OOM kills, upgrade SAS to **4 GiB**.
+If you see OOM kills, upgrade SAS to **4 GiB**, or move console to Vercel later.
 
 ---
 
@@ -75,12 +77,12 @@ App processes run as a dedicated **`polkaudit`** Linux user created by `setup-sa
 
 ### What the workflow does
 
-1. **Build** `apps/frontend` (standalone) on `ubuntu-latest`  
-2. Upload tarball as artifact  
+1. **Build** `apps/frontend` + `apps/console` (standalone) on `ubuntu-latest`  
+2. Upload tarballs as artifacts  
 3. **SCP** to `/tmp/polkaudit-artifacts/` on SAS  
-4. Run `remote-deploy.sh`: git sync → pip → alembic → unpack dashboard → restart API/indexer/frontend  
+4. Run `remote-deploy.sh`: git sync → pip → alembic → unpack UIs → restart API/indexer/frontend/console  
 
-Triggers: push to `main` touching backend/indexer/frontend/deploy/alibaba, or **workflow_dispatch**.
+Triggers: push to `main` touching backend/indexer/frontend/console/deploy/alibaba, or **workflow_dispatch**.
 
 Landing deploys separately via Vercel (connected to `apps/landing`).
 
@@ -92,16 +94,18 @@ Landing deploys separately via Vercel (connected to `apps/landing`).
 |------|--------|
 | `polkaudit.xyz` / `www` | **Vercel** (landing) |
 | `app.polkaudit.xyz` | SAS IP → dashboard `:3000` |
+| `console.polkaudit.xyz` | SAS IP → console `:3001` |
 | `api.polkaudit.xyz` | SAS IP → API `:8080` |
 | `indexer.polkaudit.xyz` | **Do not use** — indexer is local only |
 
-SSR on the dashboard uses `INTERNAL_API_URL=http://127.0.0.1:8080/api/v1`; browsers use `https://api.polkaudit.xyz`.
+SSR on dashboard/console uses `INTERNAL_API_URL=http://127.0.0.1:8080/api/v1`; browsers use `https://api.polkaudit.xyz`.
 
 TLS on SAS:
 
 ```bash
 sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d app.polkaudit.xyz -d api.polkaudit.xyz
+# first time (or after adding console DNS):
+sudo certbot --nginx -d app.polkaudit.xyz -d api.polkaudit.xyz -d console.polkaudit.xyz
 ```
 
 ---
@@ -132,13 +136,34 @@ journalctl -u polkaudit-indexer -f
 
 ---
 
+## Optional SaaS env (`/etc/polkaudit/backend.env`)
+
+Email verification / password reset and Razorpay pilots are optional. Until set, magic links are logged via `journalctl -u polkaudit-backend`, and **Upgrade** in Settings returns a manual contact fallback.
+
+| Key | Purpose |
+|-----|---------|
+| `APP_PUBLIC_URL` | Base for magic links (default `https://console.polkaudit.xyz`) |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | Send verify + reset emails |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Create Payment Links for Pilot / Pro |
+| `RAZORPAY_WEBHOOK_SECRET` | Verify `POST /api/v1/billing/webhook/razorpay` |
+
+Webhook URL to register in Razorpay: `https://api.polkaudit.xyz/api/v1/billing/webhook/razorpay` (events: `payment_link.paid`, `payment.captured`).
+
+Console runs on SAS (`polkaudit-console`, `:3001`). Create `/etc/polkaudit/console.env` from `deploy/alibaba/console.env.example` if missing (setup-sas does this). DNS: `console.polkaudit.xyz` A/AAAA → SAS IP (same as app/api).
+
+See `deploy/alibaba/backend.env.example` — never commit real secrets.
+
+---
+
 ## Cutover checklist
 
 1. Finish `setup-sas.sh` on SAS  
 2. Add `SAS_*` (+ `NEXT_PUBLIC_API_KEY`) GitHub secrets  
 3. Run workflow **Deploy Alibaba SAS**  
 4. Confirm `curl` to `:3000` / `:8080` on the server  
-5. DNS: `app` + `api` → SAS; apex/`www` stay on Vercel  
-6. Certbot for `app` + `api`  
+5. DNS: `app` + `api` + `console` → SAS; apex/`www` on Vercel  
+6. Certbot for `app` + `api` + `console`  
 7. Keep Vercel for landing only  
 8. Stop Cloud Run indexer/backend if they share the same DB (one writer only)
+9. (Optional) Add `SMTP_*` / `RAZORPAY_*` to `/etc/polkaudit/backend.env` and `systemctl restart polkaudit-backend`
+10. Set `APP_PUBLIC_URL=https://console.polkaudit.xyz` in `/etc/polkaudit/backend.env` after console DNS/TLS is live

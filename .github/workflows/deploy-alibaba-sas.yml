@@ -1,4 +1,4 @@
-# Deploy API + indexer + dashboard to Alibaba SAS.
+# Deploy API + indexer + dashboard + console to Alibaba SAS.
 # Landing stays on Vercel (polkaudit.xyz) — not deployed to SAS.
 #
 # One-time on SAS: docs/ALIBABA_SAS_DEPLOY.md → setup-sas.sh
@@ -16,6 +16,7 @@ on:
       - 'apps/backend/**'
       - 'apps/indexer/**'
       - 'apps/frontend/**'
+      - 'apps/console/**'
       - 'deploy/alibaba/**'
       - '.github/workflows/deploy-alibaba-sas.yml'
   workflow_dispatch:
@@ -26,9 +27,9 @@ concurrency:
 
 jobs:
   build-ui:
-    name: Build dashboard (standalone)
+    name: Build dashboard + console (standalone)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +37,9 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: apps/frontend/package-lock.json
+          cache-dependency-path: |
+            apps/frontend/package-lock.json
+            apps/console/package-lock.json
 
       - name: Build frontend (dashboard)
         working-directory: apps/frontend
@@ -44,6 +47,7 @@ jobs:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_API_KEY: ${{ secrets.NEXT_PUBLIC_API_KEY }}
           API_KEY: ${{ secrets.NEXT_PUBLIC_API_KEY }}
+          NEXT_PUBLIC_CONSOLE_URL: https://console.polkaudit.xyz
         run: |
           export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.polkaudit.xyz/api/v1}"
           npm ci
@@ -52,6 +56,19 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
           tar -czf "$GITHUB_WORKSPACE/artifacts/frontend.tar.gz" -C .next/standalone .
 
+      - name: Build console (account UI)
+        working-directory: apps/console
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_APP_URL: https://app.polkaudit.xyz
+        run: |
+          export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.polkaudit.xyz/api/v1}"
+          npm ci
+          npm run build
+          bash ../../deploy/alibaba/pack-next-standalone.sh apps/console
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          tar -czf "$GITHUB_WORKSPACE/artifacts/console.tar.gz" -C .next/standalone .
+
       - uses: actions/upload-artifact@v4
         with:
           name: next-standalone
@@ -59,7 +76,7 @@ jobs:
           retention-days: 3
 
   deploy:
-    name: SSH deploy (API + indexer + dashboard)
+    name: SSH deploy (API + indexer + dashboard + console)
     needs: build-ui
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -115,7 +132,7 @@ jobs:
           SCP=(scp -i ~/.ssh/sas_key -P "$PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new)
 
           "${SSH[@]}" "${SAS_USER}@${SAS_HOST}" 'mkdir -p /tmp/polkaudit-artifacts'
-          "${SCP[@]}" artifacts/frontend.tar.gz \
+          "${SCP[@]}" artifacts/frontend.tar.gz artifacts/console.tar.gz \
             "${SAS_USER}@${SAS_HOST}:/tmp/polkaudit-artifacts/"
 
           # SAS_USER is SSH login (often root). Apps run as polkaudit on the server.

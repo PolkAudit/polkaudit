@@ -4,7 +4,7 @@
 #        bash deploy/alibaba/pack-next-standalone.sh apps/landing
 set -euo pipefail
 
-APP_DIR="${1:?Usage: $0 apps/frontend|apps/landing}"
+APP_DIR="${1:?Usage: $0 apps/frontend|apps/console|apps/landing}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_PATH="$ROOT/$APP_DIR"
 

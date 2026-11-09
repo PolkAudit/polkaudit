@@ -21,6 +21,13 @@ export function getApiBase(): string {
   return getApiBaseUrl();
 }
 
+export function getConsoleUrl(): string {
+  return (process.env.NEXT_PUBLIC_CONSOLE_URL || 'https://console.polkaudit.xyz').replace(
+    /\/$/,
+    ''
+  );
+}
+
 /** Server-side key (Server Components) — from API_KEY in env. */
 function getServerApiKey(): string {
   return process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || '';
@@ -312,5 +319,83 @@ export async function authFetch<T>(path: string, options: RequestInit = {}): Pro
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+function authApiBase(): string {
+  return getApiBaseUrl().replace('/api/v1', '');
+}
+
+export type AuthUser = {
+  id: number;
+  email: string;
+  role: string;
+  is_active: boolean;
+  email_verified_at: string | null;
+  created_at: string;
+};
+
+export async function fetchCurrentUser(): Promise<AuthUser> {
+  return authFetch<AuthUser>('/api/auth/me');
+}
+
+export async function verifyEmailToken(token: string): Promise<{ message: string }> {
+  const res = await fetch(`${authApiBase()}/api/auth/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(formatApiError(err, res.status));
+  }
+  return res.json();
+}
+
+export async function resendVerification(): Promise<{ message: string }> {
+  return authFetch<{ message: string }>('/api/auth/resend-verification', {
+    method: 'POST',
+    body: '{}',
+  });
+}
+
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  const res = await fetch(`${authApiBase()}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(formatApiError(err, res.status));
+  }
+  return res.json();
+}
+
+export async function resetPassword(token: string, password: string): Promise<{ message: string }> {
+  const res = await fetch(`${authApiBase()}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(formatApiError(err, res.status));
+  }
+  return res.json();
+}
+
+export type CheckoutResult = {
+  mode: 'razorpay' | 'manual';
+  checkout_url?: string | null;
+  contact?: string | null;
+  plan_slug?: string | null;
+  amount_inr_paise?: number | null;
+};
+
+export async function startCheckout(planSlug: 'pilot' | 'pro'): Promise<CheckoutResult> {
+  return authFetch<CheckoutResult>('/api/v1/billing/checkout', {
+    method: 'POST',
+    body: JSON.stringify({ plan_slug: planSlug }),
+  });
 }
 

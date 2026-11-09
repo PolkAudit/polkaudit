@@ -609,6 +609,7 @@ Backend and indexer normalize URLs and pass `ssl=require` for `neon.tech` hosts.
 | [apps/indexer/README.md](apps/indexer/README.md) | Indexer setup, env, troubleshooting |
 | [apps/backend/README.md](apps/backend/README.md) | Backend API, migrations, troubleshooting |
 | [apps/frontend/](apps/frontend/) | Dashboard UI (canonical; replaces `apps/dashboard` for new work) |
+| [apps/console/](apps/console/) | SaaS account UI (`console.polkaudit.xyz` on SAS — auth, billing, API keys) |
 | [docs/HYBRID_DEPLOYMENT.md](docs/HYBRID_DEPLOYMENT.md) | **Oracle indexer + GCP API/UI + Neon** |
 | [docs/GCP_CLOUD_BUILD.md](docs/GCP_CLOUD_BUILD.md) | Cloud Build trigger + Cloud Run deploy |
 | [docs/ALIBABA_SAS_DEPLOY.md](docs/ALIBABA_SAS_DEPLOY.md) | Alibaba SAS API/indexer + GitHub Actions CD |
