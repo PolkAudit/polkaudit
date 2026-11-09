@@ -228,22 +228,22 @@ export default function SettingsPage() {
           </Card>
         </section>
 
-        {/* 4. Hybrid Deployment Info (Read-only) */}
+        {/* 4. Product status (no vendor branding) */}
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">Deployment</h2>
+          <h2 className="text-lg font-semibold text-foreground">Product</h2>
           <Card className="bg-card border-border p-6">
             <div className="grid gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">Indexer:</span>
-                <span className="ml-2 font-mono text-foreground">Oracle VM</span>
+                <span className="text-muted-foreground">Dashboard:</span>
+                <span className="ml-2 font-mono text-foreground">app.polkaudit.xyz</span>
               </div>
               <div>
                 <span className="text-muted-foreground">API:</span>
-                <span className="ml-2 font-mono text-foreground">GCP Cloud Run</span>
+                <span className="ml-2 font-mono text-foreground">api.polkaudit.xyz</span>
               </div>
               <div>
-                <span className="text-muted-foreground">Database:</span>
-                <span className="ml-2 font-mono text-foreground">Neon</span>
+                <span className="text-muted-foreground">Focus:</span>
+                <span className="ml-2 text-foreground">Polkadot governance transparency</span>
               </div>
             </div>
           </Card>

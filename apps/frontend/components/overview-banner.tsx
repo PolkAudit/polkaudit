@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 const STORAGE_KEY = 'polkaudit_overview_banner_dismissed'
 
 const MESSAGE =
-  'Live Polkadot indexing · Hybrid: Oracle indexer + GCP API · Data from finalized blocks'
+  'Live Polkadot indexing · Data from finalized blocks · Built for governance transparency'
 
 export function OverviewBanner() {
   const [show, setShow] = useState<boolean | null>(null)

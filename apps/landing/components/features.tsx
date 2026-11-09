@@ -35,9 +35,9 @@ export default function Features() {
     },
     {
       icon: Globe,
-      title: 'Deployment Flexibility',
+      title: 'Public Demo Ready',
       description:
-        'Run on Oracle, Neon, or Google Cloud Run—choose the infrastructure that fits your needs.',
+        'Live dashboard and API for treasury teams, auditors, and ecosystem reviewers—no local setup required.',
     },
   ]
 

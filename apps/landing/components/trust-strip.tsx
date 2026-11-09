@@ -20,8 +20,8 @@ export default function TrustStrip() {
     },
     {
       icon: Cloud,
-      label: 'Hybrid Deployment',
-      description: 'Oracle, Neon, or Cloud Run options',
+      label: 'Startup Product',
+      description: 'PolkAudit — governance transparency startup, demo-ready',
     },
   ]
 

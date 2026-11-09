@@ -22,7 +22,7 @@ export default function FAQ() {
     },
     {
       q: 'Can we self-host?',
-      a: 'Yes. For Enterprise customers, we provide containerized infrastructure (Docker + Neon) and deployment guidance for your own infrastructure.',
+      a: 'Yes. For Enterprise customers, we provide containerized packaging (Docker) and deployment guidance for your own infrastructure.',
     },
     {
       q: 'Is this open source?',
