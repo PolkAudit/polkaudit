@@ -17,6 +17,8 @@ from src.services.mailer import send_email
 from src.schemas.user import UserCreate, UserResponse
 from src.dependencies import RoleChecker
 from src.models.user import User
+from src.models.billing import PaymentEvent
+from datetime import datetime
 
 router = APIRouter()
 
@@ -149,6 +151,35 @@ async def update_smtp_settings(
         clear_password=body.clear_password,
     )
     return SmtpSettingsResponse(**data)
+
+
+class AdminPaymentEventResponse(BaseModel):
+    id: int
+    provider: str
+    event_id: Optional[str] = None
+    event_type: str
+    project_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+@router.get(
+    "/payments",
+    response_model=list[AdminPaymentEventResponse],
+    dependencies=[Depends(allow_admin)],
+)
+async def list_all_payments(
+    project_id: Optional[int] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(PaymentEvent).order_by(PaymentEvent.created_at.desc()).limit(limit)
+    if project_id is not None:
+        q = q.where(PaymentEvent.project_id == project_id)
+    result = await db.execute(q)
+    return list(result.scalars().all())
 
 
 @router.post("/settings/smtp/test", dependencies=[Depends(allow_admin)])

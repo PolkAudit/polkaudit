@@ -40,6 +40,9 @@ function BillingPageInner() {
   const [checkoutBusy, setCheckoutBusy] = useState<CheckoutPlanSlug | null>(null)
   const [loading, setLoading] = useState(true)
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null)
+  const [payments, setPayments] = useState<
+    { id: number; event_type: string; provider: string; created_at?: string | null }[]
+  >([])
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -54,14 +57,18 @@ function BillingPageInner() {
     ;(async () => {
       try {
         const load = async () => {
-          const [subscription, planList] = await Promise.all([
+          const [subscription, planList, paymentList] = await Promise.all([
             authFetch<SubscriptionInfo>('/api/v1/billing/subscription').catch(() => ({
               plan: { slug: 'free', name: 'Free', price_usd_cents: 0, currency: 'USD' },
             })),
             authFetch<BillingPlan[]>('/api/v1/billing/plans').catch(() => []),
+            authFetch<
+              { id: number; event_type: string; provider: string; created_at?: string | null }[]
+            >('/api/v1/billing/payments').catch(() => []),
           ])
           setSub(subscription)
           setPlans(planList)
+          setPayments(paymentList)
           return subscription
         }
         let subscription = await load()
@@ -234,6 +241,34 @@ function BillingPageInner() {
                   )
                 })}
               </div>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                Payment history
+              </h2>
+              <Card className="bg-card border-border p-4">
+                {payments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No payment events yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {payments.map((p) => (
+                      <li
+                        key={p.id}
+                        className="flex flex-wrap items-center justify-between gap-2 text-sm border border-border rounded px-3 py-2"
+                      >
+                        <span className="font-medium">{p.event_type}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {p.provider}
+                          {p.created_at
+                            ? ` · ${new Date(p.created_at).toLocaleString()}`
+                            : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
             </section>
           </>
         )}

@@ -149,6 +149,11 @@ async def create_checkout(
     current_user: User = Depends(get_current_active_user),
     project_id: int = Depends(get_current_project),
 ):
+    if not current_user.email_verified_at:
+        raise HTTPException(
+            status_code=403,
+            detail="Verify your email before checkout. Resend from Console Settings.",
+        )
     if body.plan_slug not in CHECKOUT_PLAN_SLUGS:
         raise HTTPException(status_code=400, detail="Plan is not available for self-serve checkout")
 
@@ -209,6 +214,36 @@ async def create_checkout(
         currency="USD",
         billing_interval=interval,
     )
+
+
+class PaymentEventResponse(BaseModel):
+    id: int
+    provider: str
+    event_id: Optional[str] = None
+    event_type: str
+    project_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/payments", response_model=List[PaymentEventResponse])
+async def list_my_payments(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    project_id: int = Depends(get_current_project),
+):
+    _ = current_user
+    lim = min(max(limit, 1), 100)
+    result = await db.execute(
+        select(PaymentEvent)
+        .where(PaymentEvent.project_id == project_id)
+        .order_by(PaymentEvent.created_at.desc())
+        .limit(lim)
+    )
+    return list(result.scalars().all())
 
 
 @router.post("/webhook/razorpay")

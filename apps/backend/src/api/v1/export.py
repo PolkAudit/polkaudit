@@ -5,11 +5,12 @@ from sqlalchemy import select
 from src.database import get_db
 from src.auth import get_api_key
 from src.entitlements import require_export_entitlement
+from src.services.plan_rate_limit import enforce_plan_rate_limit
 from src.models.proposal import Proposal, TreasurySpend
 import csv
 import io
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(enforce_plan_rate_limit)])
 
 @router.get("/proposals/csv")
 async def export_proposals_csv(
@@ -17,6 +18,7 @@ async def export_proposals_csv(
     api_key: str = Depends(get_api_key),
     _plan=Depends(require_export_entitlement),
 ):
+    _ = api_key
     async def iter_csv():
         output = io.StringIO()
         writer = csv.writer(output)
@@ -50,6 +52,7 @@ async def export_treasury_csv(
     api_key: str = Depends(get_api_key),
     _plan=Depends(require_export_entitlement),
 ):
+    _ = api_key
     async def iter_csv():
         output = io.StringIO()
         writer = csv.writer(output)

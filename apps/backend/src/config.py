@@ -8,6 +8,8 @@ from src.db_url import normalize_async_database_url
 class Settings(BaseSettings):
     DATABASE_URL: str = Field(..., env="DATABASE_URL")
     API_KEY: str = Field(..., env="API_KEY")
+    # JWT signing secret — prefer dedicated key; falls back to API_KEY if unset
+    SECRET_KEY: Optional[str] = Field(None, env="SECRET_KEY")
     LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
 
     # Public app URL for magic links
@@ -39,6 +41,10 @@ class Settings(BaseSettings):
     @property
     def razorpay_enabled(self) -> bool:
         return bool(self.RAZORPAY_KEY_ID and self.RAZORPAY_KEY_SECRET)
+
+    @property
+    def jwt_secret(self) -> str:
+        return (self.SECRET_KEY or self.API_KEY or "").strip() or "dev-insecure-secret"
 
 
 settings = Settings()

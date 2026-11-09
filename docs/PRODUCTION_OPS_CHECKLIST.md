@@ -10,6 +10,8 @@ Use before charging tenants via Console / Razorpay.
 - [x] Project switcher + payment callback UX on `/billing`
 - [x] Export entitlements (subscription + daily caps)
 - [x] Admin SMTP settings in Console (`/admin/smtp`) — DB overrides env when Host is set
+- [x] Payment history (tenant + admin) + plan RPM limits + verified-email checkout
+- [x] Dedicated `SECRET_KEY` for JWT (falls back to `API_KEY`)
 
 ## SAS env (manual)
 
@@ -17,6 +19,7 @@ In `/etc/polkaudit/backend.env`:
 
 ```bash
 APP_PUBLIC_URL=https://console.polkaudit.xyz
+SECRET_KEY=CHANGE_ME_JWT_SECRET
 # RAZORPAY_KEY_ID=rzp_live_...
 # RAZORPAY_KEY_SECRET=...
 # RAZORPAY_WEBHOOK_SECRET=...

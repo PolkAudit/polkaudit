@@ -16,6 +16,7 @@ governance dashboard.
 | Projects | `/admin/projects` | Create/list tenants (admin) |
 | Platform billing | `/admin/billing` | Manually set tenant plan (admin) |
 | SMTP | `/admin/smtp` | Platform email settings + test send (admin) |
+| Payments | `/admin/payments` | Razorpay webhook event log (admin) |
 
 **USD list prices (landing midpoints):** Pilot $1,000 / 3 months · Starter $149 / month · Pro $599 / month · Enterprise quote-only.
 

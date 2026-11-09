@@ -10,8 +10,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT Configuration
 ALGORITHM = "HS256"
-# Using a default secret for dev if not set, but logically should be in settings
-SECRET_KEY = settings.API_KEY # Reusing API Key as secret or ideally a separate SECRET_KEY
+SECRET_KEY = settings.jwt_secret
 
 
 def _bcrypt_safe_password(password: str) -> str:

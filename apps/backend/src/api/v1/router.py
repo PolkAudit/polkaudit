@@ -4,6 +4,7 @@ from typing import List
 
 from src.database import get_db
 from src.auth import get_api_key
+from src.services.plan_rate_limit import enforce_plan_rate_limit
 from src.schemas.proposal import ProposalResponse
 
 from src.services.governance import GovernanceService
@@ -15,13 +16,14 @@ from src.schemas.treasury import TreasurySpendResponse
 from src.schemas.vote import ProposalDetailResponse, VoteResponse
 from src.schemas.activity import RecentActivityResponse
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(enforce_plan_rate_limit)])
 
 @router.get("/stats/overview", response_model=StatsOverview)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
     api_key: str = Depends(get_api_key)
 ):
+    _ = api_key
     service = StatsService(db)
     return await service.get_overview()
 
@@ -31,6 +33,7 @@ async def get_recent_activity(
     db: AsyncSession = Depends(get_db),
     api_key: str = Depends(get_api_key),
 ):
+    _ = api_key
     service = ActivityService(db)
     return await service.get_recent(min(max(limit, 1), 50))
 
@@ -42,6 +45,7 @@ async def get_proposals(
     db: AsyncSession = Depends(get_db),
     api_key: str = Depends(get_api_key)
 ):
+    _ = api_key
     service = GovernanceService(db)
     return await service.get_proposals(skip, limit, proposer)
 
@@ -51,6 +55,7 @@ async def get_proposal(
     db: AsyncSession = Depends(get_db),
     api_key: str = Depends(get_api_key)
 ):
+    _ = api_key
     service = GovernanceService(db)
     proposal = await service.get_proposal_detail(proposal_index)
     if not proposal:
@@ -65,6 +70,7 @@ async def get_proposal_votes(
     db: AsyncSession = Depends(get_db),
     api_key: str = Depends(get_api_key),
 ):
+    _ = api_key
     service = GovernanceService(db)
     return await service.get_votes_for_proposal(proposal_index, skip, limit)
 
@@ -75,6 +81,6 @@ async def get_treasury_spends(
     db: AsyncSession = Depends(get_db),
     api_key: str = Depends(get_api_key)
 ):
+    _ = api_key
     service = TreasuryService(db)
     return await service.get_spends(skip, limit)
-
