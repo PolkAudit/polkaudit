@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -12,6 +12,8 @@ from src.services.tenant_service import (
     TenantCreateRequest,
     MembershipRequest,
 )
+from src.services.platform_settings_service import PlatformSettingsService
+from src.services.mailer import send_email
 from src.schemas.user import UserCreate, UserResponse
 from src.dependencies import RoleChecker
 from src.models.user import User
@@ -19,6 +21,31 @@ from src.models.user import User
 router = APIRouter()
 
 allow_admin = RoleChecker(["admin"])
+
+
+class SmtpSettingsResponse(BaseModel):
+    host: str = ""
+    port: int = 587
+    user: str = ""
+    from_address: str = ""
+    use_tls: bool = True
+    source: str = "env"
+    configured: bool = False
+    password_set: bool = False
+
+
+class SmtpSettingsUpdate(BaseModel):
+    host: str = ""
+    port: int = Field(587, ge=1, le=65535)
+    user: str = ""
+    from_address: str = "PolkAudit <noreply@polkaudit.xyz>"
+    use_tls: bool = True
+    password: Optional[str] = None  # omit / empty = keep existing
+    clear_password: bool = False
+
+
+class SmtpTestRequest(BaseModel):
+    to: EmailStr
 
 
 class MembershipResponse(BaseModel):
@@ -90,3 +117,60 @@ async def remove_membership(
     service = TenantService(db)
     await service.remove_membership(user_id, project_id)
     return None
+
+
+@router.get(
+    "/settings/smtp",
+    response_model=SmtpSettingsResponse,
+    dependencies=[Depends(allow_admin)],
+)
+async def get_smtp_settings(db: AsyncSession = Depends(get_db)):
+    svc = PlatformSettingsService(db)
+    return SmtpSettingsResponse(**(await svc.get_smtp_public()))
+
+
+@router.put(
+    "/settings/smtp",
+    response_model=SmtpSettingsResponse,
+    dependencies=[Depends(allow_admin)],
+)
+async def update_smtp_settings(
+    body: SmtpSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    svc = PlatformSettingsService(db)
+    data = await svc.save_smtp(
+        host=body.host,
+        port=body.port,
+        user=body.user,
+        from_address=body.from_address,
+        use_tls=body.use_tls,
+        password=body.password,
+        clear_password=body.clear_password,
+    )
+    return SmtpSettingsResponse(**data)
+
+
+@router.post("/settings/smtp/test", dependencies=[Depends(allow_admin)])
+async def test_smtp(
+    body: SmtpTestRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    svc = PlatformSettingsService(db)
+    public = await svc.get_smtp_public()
+    if not public.get("configured"):
+        raise HTTPException(
+            status_code=400,
+            detail="SMTP is not configured. Save host settings first.",
+        )
+    ok = await send_email(
+        body.to,
+        "PolkAudit SMTP test",
+        "This is a test email from PolkAudit Console platform admin settings.",
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=502,
+            detail="SMTP send failed. Check host/credentials and server logs.",
+        )
+    return {"message": f"Test email sent to {body.to}", "source": public.get("source")}

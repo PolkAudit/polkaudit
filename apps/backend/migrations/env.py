@@ -27,6 +27,7 @@ from src.models.audit import AuditCase, AuditEvidence, AuditComment
 from src.models.api_key import ApiKey
 from src.models.billing import Plan, Subscription, PaymentEvent
 from src.models.auth_token import AuthToken
+from src.models.platform_setting import PlatformSetting
 from src.config import settings
 
 target_metadata = Base.metadata

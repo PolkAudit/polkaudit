@@ -14,6 +14,7 @@ import {
   Wallet,
   Building2,
   UsersRound,
+  Mail,
   ExternalLink,
 } from 'lucide-react'
 import { ProjectSwitcher } from '@/components/project-switcher'
@@ -52,6 +53,7 @@ const adminNav: NavItem[] = [
   { label: 'Users', href: '/admin/users', icon: Users, adminOnly: true },
   { label: 'Projects', href: '/admin/projects', icon: FolderKanban, adminOnly: true },
   { label: 'Platform billing', href: '/admin/billing', icon: Wallet, adminOnly: true },
+  { label: 'SMTP', href: '/admin/smtp', icon: Mail, adminOnly: true },
 ]
 
 function isActivePath(pathname: string, href: string) {

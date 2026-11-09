@@ -9,6 +9,7 @@ Use before charging tenants via Console / Razorpay.
 - [x] Memberships API + Console UI
 - [x] Project switcher + payment callback UX on `/billing`
 - [x] Export entitlements (subscription + daily caps)
+- [x] Admin SMTP settings in Console (`/admin/smtp`) — DB overrides env when Host is set
 
 ## SAS env (manual)
 
@@ -19,7 +20,7 @@ APP_PUBLIC_URL=https://console.polkaudit.xyz
 # RAZORPAY_KEY_ID=rzp_live_...
 # RAZORPAY_KEY_SECRET=...
 # RAZORPAY_WEBHOOK_SECRET=...
-# SMTP_* for verify / reset emails
+# Optional SMTP_* fallback if not set in Console → SMTP
 ```
 
 Then:
