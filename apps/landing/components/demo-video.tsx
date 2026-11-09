@@ -3,22 +3,23 @@ import Link from 'next/link'
 import { Play, ExternalLink } from 'lucide-react'
 import { siteConfig } from '@/lib/site'
 import { getYouTubeEmbedUrl, getYouTubeVideoId, getYouTubeWatchUrl } from '@/lib/youtube'
+import Container from '@/components/container'
 
 export default function DemoVideo() {
   const videoId = getYouTubeVideoId(siteConfig.links.demoVideo)
   const hasVideo = Boolean(videoId)
 
   return (
-    <section id="demo" className="bg-card border-y border-border py-20 md:py-32">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10 md:mb-12">
+    <section id="demo" className="bg-card border-y border-border py-12 sm:py-16 lg:py-20 xl:py-24">
+      <Container size="media">
+        <div className="text-center mb-8 sm:mb-10 lg:mb-12">
           <p className="text-sm font-medium text-accent uppercase tracking-wide mb-2">
             Product walkthrough
           </p>
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-4">
             See PolkAudit in action
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
             A short demo of live Polkadot indexing, the governance dashboard, treasury views,
             and audit-ready exports — built for treasury teams, grantees, and reviewers.
           </p>
@@ -117,7 +118,7 @@ export default function DemoVideo() {
             in your landing env to embed the video here automatically.
           </p>
         )}
-      </div>
+      </Container>
     </section>
   )
 }

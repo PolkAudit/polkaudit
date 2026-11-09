@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react'
 import { siteConfig } from '@/lib/site'
+import Container from '@/components/container'
 
 export default function Pricing() {
   const tiers = [
@@ -93,31 +94,31 @@ export default function Pricing() {
   ]
 
   return (
-    <section id="pricing" className="bg-background py-20 md:py-32">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+    <section id="pricing" className="bg-background py-12 sm:py-16 lg:py-20 xl:py-24">
+      <Container>
+        <div className="text-center mb-8 sm:mb-12 lg:mb-14">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-4">
             Pricing
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Start with a pilot, then move to monthly plans. Treasury-linked teams can
-            pay in DOT equivalent at invoice time.
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+            Start with a pilot, then move to monthly plans. Treasury-linked teams can pay in DOT
+            equivalent at invoice time.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
           {tiers.map((tier) => (
             <div
               key={tier.name}
-              className={`relative rounded-lg border p-8 transition-all ${
+              className={`relative flex h-full flex-col rounded-lg border p-6 sm:p-8 transition-all ${
                 tier.highlighted
                   ? 'bg-card border-accent shadow-lg'
                   : 'bg-card border-border hover:border-accent/50'
               }`}
             >
               {tier.highlighted && (
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <span className="inline-block px-3 py-1 bg-accent text-accent-foreground text-xs font-semibold rounded-full">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="inline-block px-3 py-1 bg-accent text-accent-foreground text-xs font-semibold rounded-full whitespace-nowrap">
                     Most Popular
                   </span>
                 </div>
@@ -127,16 +128,20 @@ export default function Pricing() {
               <p className="text-sm text-muted-foreground mb-4">{tier.description}</p>
 
               <div className="mb-6">
-                <div className="text-2xl font-bold text-foreground">
+                <div className="text-xl sm:text-2xl font-bold text-foreground">
                   {tier.price}
-                  <span className="text-sm font-normal text-muted-foreground">{tier.cadence}</span>
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {tier.cadence}
+                  </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Final quote depends on scope and usage.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Final quote depends on scope and usage.
+                </p>
               </div>
 
               <a
                 href={`mailto:${siteConfig.links.contact}?subject=PolkAudit%20${encodeURIComponent(tier.name)}%20Plan`}
-                className={`block w-full text-center py-2 px-4 rounded-lg font-medium transition-colors mb-8 ${
+                className={`block w-full text-center py-2.5 px-4 rounded-lg font-medium transition-colors mb-6 sm:mb-8 ${
                   tier.highlighted
                     ? 'bg-accent text-accent-foreground hover:bg-primary'
                     : 'border border-border text-foreground hover:bg-secondary/50'
@@ -145,7 +150,7 @@ export default function Pricing() {
                 {tier.ctaLabel}
               </a>
 
-              <ul className="space-y-3">
+              <ul className="mt-auto space-y-3">
                 {tier.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-3">
                     <Check className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
@@ -157,15 +162,15 @@ export default function Pricing() {
           ))}
         </div>
 
-        <div className="mt-10 grid md:grid-cols-2 gap-6">
+        <div className="mt-8 sm:mt-10 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {oneTimePackages.map((pkg) => (
-            <div key={pkg.name} className="rounded-lg border border-border bg-card p-6">
-              <div className="flex items-start justify-between gap-4">
+            <div key={pkg.name} className="rounded-lg border border-border bg-card p-5 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">{pkg.name}</h3>
                   <p className="text-sm text-muted-foreground mt-1">{pkg.description}</p>
                 </div>
-                <div className="text-right">
+                <div className="sm:text-right shrink-0">
                   <p className="text-lg font-semibold text-foreground">{pkg.price}</p>
                   <p className="text-xs text-muted-foreground">one-time</p>
                 </div>
@@ -182,14 +187,17 @@ export default function Pricing() {
           ))}
         </div>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
+        <p className="mt-6 text-center text-xs text-muted-foreground px-2">
           Need a custom structure? Email{' '}
-          <a className="underline hover:text-foreground" href={`mailto:${siteConfig.links.contact}`}>
+          <a
+            className="underline hover:text-foreground break-all"
+            href={`mailto:${siteConfig.links.contact}`}
+          >
             {siteConfig.links.contact}
           </a>{' '}
           for enterprise or partnership pricing.
         </p>
-      </div>
+      </Container>
     </section>
   )
 }
