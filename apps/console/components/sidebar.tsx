@@ -17,6 +17,16 @@ import {
   Mail,
   Receipt,
   ExternalLink,
+  Activity,
+  BarChart3,
+  CalendarClock,
+  FileText,
+  Plug,
+  Shield,
+  Bot,
+  ClipboardList,
+  Database,
+  RefreshCw,
 } from 'lucide-react'
 import { ProjectSwitcher } from '@/components/project-switcher'
 import { Button } from '@/components/ui/button'
@@ -44,7 +54,15 @@ const mainNav: NavItem[] = [
   { label: 'Home', href: '/', icon: Home },
   { label: 'API keys', href: '/keys', icon: KeyRound },
   { label: 'Billing', href: '/billing', icon: CreditCard },
+  { label: 'Usage', href: '/usage', icon: Activity },
+  { label: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { label: 'Schedules', href: '/schedules', icon: CalendarClock },
+  { label: 'Reports', href: '/reports', icon: FileText },
   { label: 'Alerts', href: '/alerts', icon: Bell },
+  { label: 'Integrations', href: '/integrations', icon: Plug },
+  { label: 'Compliance', href: '/compliance', icon: Shield },
+  { label: 'AI', href: '/ai', icon: Bot },
+  { label: 'Audit', href: '/audit', icon: ClipboardList },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
@@ -56,6 +74,8 @@ const adminNav: NavItem[] = [
   { label: 'Platform billing', href: '/admin/billing', icon: Wallet, adminOnly: true },
   { label: 'Payments', href: '/admin/payments', icon: Receipt, adminOnly: true },
   { label: 'SMTP', href: '/admin/smtp', icon: Mail, adminOnly: true },
+  { label: 'Database', href: '/admin/database', icon: Database, adminOnly: true },
+  { label: 'Chain sync', href: '/admin/chains', icon: RefreshCw, adminOnly: true },
 ]
 
 function isActivePath(pathname: string, href: string) {

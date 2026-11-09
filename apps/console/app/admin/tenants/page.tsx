@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Header } from '@/components/header'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -224,6 +225,9 @@ export default function AdminTenantsPage() {
                   User {result.user.email} ({result.user.created ? 'new' : 'existing'}) · plan{' '}
                   {result.subscription.plan_slug}
                 </p>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/admin/tenants/${result.project.id}`}>Open tenant detail</Link>
+                </Button>
                 {result.api_key?.raw_key && (
                   <Alert className="border border-accent/40 bg-accent/5">
                     <AlertDescription className="text-xs font-mono break-all">

@@ -54,6 +54,14 @@ class AuditService:
         await self.db.refresh(comment)
         return comment
 
+    async def list_cases(self, project_id: int):
+        result = await self.db.execute(
+            select(AuditCase)
+            .where(AuditCase.project_id == project_id)
+            .order_by(AuditCase.id.desc())
+        )
+        return list(result.scalars().all())
+
     async def get_case_details(self, case_id: int):
         case = await self.db.get(AuditCase, case_id)
         if not case:

@@ -323,6 +323,7 @@ export function formatBillingInterval(interval: string | null | undefined): stri
 export type SubscriptionInfo = {
   status?: string | null;
   plan?: BillingPlan | null;
+  billing_note?: string | null;
 };
 
 export type AdminUser = {

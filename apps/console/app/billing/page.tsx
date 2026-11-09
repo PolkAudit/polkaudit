@@ -20,6 +20,7 @@ import {
   type CheckoutPlanSlug,
   type SubscriptionInfo,
 } from '@/lib/api'
+import { Input } from '@/components/ui/input'
 
 const PLAN_ORDER = ['free', 'pilot', 'starter', 'pro', 'enterprise']
 const CHECKOUT_PLANS: CheckoutPlanSlug[] = ['pilot', 'starter', 'pro']
@@ -43,6 +44,8 @@ function BillingPageInner() {
   const [payments, setPayments] = useState<
     { id: number; event_type: string; provider: string; created_at?: string | null }[]
   >([])
+  const [manualNote, setManualNote] = useState('')
+  const [manualBusy, setManualBusy] = useState(false)
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -245,11 +248,60 @@ function BillingPageInner() {
 
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                Payment history
+                Manual / DOT payment note
               </h2>
-              <Card className="bg-card border-border p-4">
+              <Card className="bg-card border-border p-4 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Record Wise, DOT, or offline payment references on the subscription.
+                </p>
+                <Input
+                  value={manualNote}
+                  onChange={(e) => setManualNote(e.target.value)}
+                  placeholder="e.g. DOT tx hash / Wise invoice #42"
+                />
+                <Button
+                  disabled={manualBusy || !manualNote.trim()}
+                  onClick={async () => {
+                    setManualBusy(true)
+                    try {
+                      const updated = await authFetch<SubscriptionInfo>(
+                        '/api/v1/billing/manual-note',
+                        {
+                          method: 'POST',
+                          body: JSON.stringify({ note: manualNote.trim() }),
+                        }
+                      )
+                      setSub(updated)
+                      setManualNote('')
+                      toast.success('Billing note saved')
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : 'Failed')
+                    } finally {
+                      setManualBusy(false)
+                    }
+                  }}
+                >
+                  {manualBusy ? 'Saving…' : 'Save note'}
+                </Button>
+                {sub?.billing_note ? (
+                  <pre className="text-xs whitespace-pre-wrap text-muted-foreground border border-border rounded p-2">
+                    {sub.billing_note}
+                  </pre>
+                ) : null}
+              </Card>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                Receipts / invoices
+              </h2>
+              <Card className="bg-card border-border p-4 space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Formal PDF invoices are not generated yet. Payment webhook events below act as
+                  the receipt ledger for now.
+                </p>
                 {payments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No payment events yet.</p>
+                  <p className="text-sm text-muted-foreground">No receipt events yet.</p>
                 ) : (
                   <ul className="space-y-2">
                     {payments.map((p) => (
@@ -257,7 +309,9 @@ function BillingPageInner() {
                         key={p.id}
                         className="flex flex-wrap items-center justify-between gap-2 text-sm border border-border rounded px-3 py-2"
                       >
-                        <span className="font-medium">{p.event_type}</span>
+                        <span className="font-medium">
+                          #{p.id} · {p.event_type}
+                        </span>
                         <span className="text-xs text-muted-foreground">
                           {p.provider}
                           {p.created_at

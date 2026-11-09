@@ -53,6 +53,9 @@ from src.api.v1.chains import router as chains_router
 from src.api.v1.audit import router as audit_router
 from src.api.v1.keys import router as keys_router
 from src.api.v1.billing import router as billing_router
+from src.api.v1.usage import router as usage_router
+from src.api.v1.schedules import router as schedules_router
+from src.api.admin_db import router as admin_db_router
 from src.api.public.router import router as public_router
 
 # Routers
@@ -61,6 +64,7 @@ app.include_router(export_router, prefix="/api/v1/export", tags=["export"])
 app.include_router(reports_router, prefix="/api/v1/reports", tags=["reports"])
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
+app.include_router(admin_db_router, prefix="/api/admin/db", tags=["admin-db"])
 app.include_router(alerts_router, prefix="/api/v1/alerts", tags=["alerts"])
 app.include_router(projects_router, prefix="/api/v1/projects", tags=["projects"])
 app.include_router(scoring_router, prefix="/api/v1/scores", tags=["scoring"])
@@ -72,6 +76,8 @@ app.include_router(chains_router, prefix="/api/v1/chains", tags=["chains"])
 app.include_router(audit_router, prefix="/api/v1/audit", tags=["audit"])
 app.include_router(keys_router, prefix="/api/v1/keys", tags=["api-keys"])
 app.include_router(billing_router, prefix="/api/v1/billing", tags=["billing"])
+app.include_router(usage_router, prefix="/api/v1/usage", tags=["usage"])
+app.include_router(schedules_router, prefix="/api/v1/schedules", tags=["schedules"])
 app.include_router(public_router, prefix="/api/public", tags=["public"])
 
 @app.get("/health", tags=["Health"])

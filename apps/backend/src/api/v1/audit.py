@@ -30,6 +30,14 @@ async def create_case(
     service = AuditService(db)
     return await service.create_case(project_id, case_data.title, case_data.description, case_data.auditor_id)
 
+@router.get("/cases", dependencies=[Depends(allow_auditor)])
+async def list_cases(
+    db: AsyncSession = Depends(get_db),
+    project_id: int = Depends(get_current_project),
+):
+    service = AuditService(db)
+    return await service.list_cases(project_id)
+
 @router.get("/cases/{case_id}", dependencies=[Depends(allow_auditor)])
 async def get_case(
     case_id: int,

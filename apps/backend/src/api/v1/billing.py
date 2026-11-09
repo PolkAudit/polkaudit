@@ -62,6 +62,13 @@ class CheckoutRequest(BaseModel):
     plan_slug: str = Field(pattern="^(pilot|starter|pro)$")
 
 
+class ManualBillingNoteRequest(BaseModel):
+    note: str = Field(min_length=1, max_length=500)
+    mark_plan_slug: Optional[str] = Field(
+        default=None, pattern="^(free|pilot|starter|pro|enterprise)$"
+    )
+
+
 class CheckoutResponse(BaseModel):
     mode: str  # razorpay | manual
     checkout_url: Optional[str] = None
@@ -226,6 +233,45 @@ class PaymentEventResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+@router.post("/manual-note", response_model=SubscriptionResponse)
+async def add_manual_billing_note(
+    body: ManualBillingNoteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    project_id: int = Depends(get_current_project),
+):
+    """Record Wise/DOT/manual payment note; admins may also flip plan."""
+    service = BillingService(db)
+    note = f"[manual/{current_user.email}] {body.note}"
+    if body.mark_plan_slug:
+        if current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="Only admin can change plan via manual note")
+        sub = await service.set_subscription(
+            project_id, body.mark_plan_slug, status="active", billing_note=note
+        )
+    else:
+        sub = await service.get_subscription(project_id)
+        if not sub:
+            sub = await service.set_subscription(
+                project_id, "free", status="active", billing_note=note
+            )
+        else:
+            prev = sub.billing_note or ""
+            sub.billing_note = f"{prev}\n{note}".strip() if prev else note
+            await db.commit()
+            await db.refresh(sub)
+    plan = await service.get_plan_for_project(project_id)
+    return SubscriptionResponse(
+        id=sub.id,
+        project_id=sub.project_id,
+        plan_id=sub.plan_id,
+        status=sub.status,
+        billing_note=sub.billing_note,
+        starts_at=sub.starts_at,
+        plan=PlanResponse.model_validate(plan) if plan else None,
+    )
 
 
 @router.get("/payments", response_model=List[PaymentEventResponse])

@@ -77,4 +77,10 @@ async def require_export_entitlement(
     request.state.plan_slug = plan.slug
     request.state.export_limit_daily = limit
     record_export_and_check(project_id, limit)
+    try:
+        from src.services.usage_service import UsageService
+
+        await UsageService(db).increment_export(project_id)
+    except Exception:
+        pass
     return plan

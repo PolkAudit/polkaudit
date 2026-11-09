@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Header } from '@/components/header'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -155,7 +156,12 @@ export default function AdminProjectsPage() {
                     className="rounded border border-border px-3 py-2 text-sm space-y-1"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-foreground">{p.name}</span>
+                      <Link
+                        href={`/admin/tenants/${p.id}`}
+                        className="font-medium text-foreground hover:underline"
+                      >
+                        {p.name}
+                      </Link>
                       <span className="text-xs font-mono text-muted-foreground">{p.slug}</span>
                     </div>
                     <p className="text-xs text-muted-foreground">
