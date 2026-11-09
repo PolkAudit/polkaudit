@@ -92,6 +92,11 @@ else
 fi
 
 chown -R "$RUN_USER:$RUN_USER" "$INSTALL_DIR"
+# Root SSH on Alibaba + polkaudit-owned tree: avoid "dubious ownership" on git fetch
+git config --global --add safe.directory "$INSTALL_DIR"
+sudo -u "$RUN_USER" git config --global --add safe.directory "$INSTALL_DIR" || true
+# Keep deploy scripts executable after chown
+chmod +x "$INSTALL_DIR/deploy/alibaba/"*.sh 2>/dev/null || true
 
 # --- PostgreSQL role + database ---
 if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1; then

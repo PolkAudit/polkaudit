@@ -42,6 +42,10 @@ as_root() {
 
 cd "$INSTALL_DIR"
 
+# Root SSH + polkaudit-owned tree
+git config --global --add safe.directory "$INSTALL_DIR" 2>/dev/null || true
+as_user "git config --global --add safe.directory '$INSTALL_DIR'" 2>/dev/null || true
+
 echo "== git sync ($BRANCH) as $RUN_USER =="
 as_user "
   cd '$INSTALL_DIR'
