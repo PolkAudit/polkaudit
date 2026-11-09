@@ -34,14 +34,26 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-RUN_USER="${SUDO_USER:-ubuntu}"
-if ! id "$RUN_USER" &>/dev/null; then
+# Alibaba SAS often only has root SSH — never run app processes as root.
+# Prefer existing ubuntu, else create a dedicated polkaudit system user.
+if [[ -n "${FORCE_RUN_USER:-}" ]]; then
+  RUN_USER="$FORCE_RUN_USER"
+elif id ubuntu &>/dev/null; then
   RUN_USER=ubuntu
+elif [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]] && id "${SUDO_USER}" &>/dev/null; then
+  RUN_USER="${SUDO_USER}"
+else
+  RUN_USER=polkaudit
+fi
+
+if ! id "$RUN_USER" &>/dev/null; then
+  echo "Creating service user: $RUN_USER"
+  useradd --create-home --shell /bin/bash "$RUN_USER"
 fi
 
 echo "== PolkAudit Alibaba SAS setup =="
 echo "Install dir: $INSTALL_DIR"
-echo "Service user: $RUN_USER"
+echo "Service user: $RUN_USER  (SSH may still be root — that is OK)"
 echo "Branch: $BRANCH"
 
 export DEBIAN_FRONTEND=noninteractive
@@ -166,7 +178,7 @@ sudo -u "$RUN_USER" bash -c "
 
 # --- systemd (API + indexer now; UI after first Actions deploy) ---
 for unit in indexer backend frontend landing; do
-  sed "s/User=ubuntu/User=${RUN_USER}/; s/Group=ubuntu/Group=${RUN_USER}/" \
+  sed "s/User=polkaudit/User=${RUN_USER}/; s/Group=polkaudit/Group=${RUN_USER}/; s/User=ubuntu/User=${RUN_USER}/; s/Group=ubuntu/Group=${RUN_USER}/" \
     "$INSTALL_DIR/deploy/alibaba/polkaudit-${unit}.service" \
     > "/etc/systemd/system/polkaudit-${unit}.service"
 done

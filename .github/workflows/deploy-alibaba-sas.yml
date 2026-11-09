@@ -4,6 +4,7 @@
 # One-time on SAS: docs/ALIBABA_SAS_DEPLOY.md → setup-sas.sh
 #
 # Required secrets: SAS_HOST, SAS_USER, SAS_SSH_KEY
+#   SAS_USER is often "root" on Alibaba SAS (root-only SSH). App processes still run as "polkaudit".
 # Optional: SAS_PORT, SAS_BRANCH, NEXT_PUBLIC_API_KEY, NEXT_PUBLIC_* overrides
 
 name: Deploy Alibaba SAS
@@ -135,5 +136,6 @@ jobs:
           "${SCP[@]}" artifacts/frontend.tar.gz artifacts/landing.tar.gz \
             "${SAS_USER}@${SAS_HOST}:/tmp/polkaudit-artifacts/"
 
+          # SAS_USER is SSH login (often root). Apps run as polkaudit on the server.
           "${SSH[@]}" "${SAS_USER}@${SAS_HOST}" \
-            "sudo BRANCH='${BRANCH}' RUN_USER='${SAS_USER}' ARTIFACT_DIR=/tmp/polkaudit-artifacts bash /opt/polkaudit/deploy/alibaba/remote-deploy.sh"
+            "BRANCH='${BRANCH}' RUN_USER=polkaudit ARTIFACT_DIR=/tmp/polkaudit-artifacts bash /opt/polkaudit/deploy/alibaba/remote-deploy.sh"

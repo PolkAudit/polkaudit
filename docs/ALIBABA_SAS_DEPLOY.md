@@ -35,14 +35,16 @@ If you see OOM kills, upgrade SAS to **4 GiB**.
 
 ## One-time bootstrap (manual)
 
-On the SAS instance (Ubuntu):
+On the SAS instance (SSH as **root** is normal on Alibaba — the script creates a `polkaudit` service user):
 
 ```bash
 cd /tmp
 rm -rf polkaudit
 git clone --branch main https://github.com/PolkAudit/polkaudit.git
 cd polkaudit
-sudo bash deploy/alibaba/setup-sas.sh --skip-clone --install-dir /opt/polkaudit
+# already root on SAS:
+bash deploy/alibaba/setup-sas.sh --skip-clone --install-dir /opt/polkaudit
+# or: sudo bash deploy/alibaba/setup-sas.sh --skip-clone --install-dir /opt/polkaudit
 ```
 
 This installs Postgres, API, indexer, nginx host routing, Node 20 runtime, swap, env files, and prune cron.  
@@ -64,10 +66,12 @@ sudo systemctl status polkaudit-backend polkaudit-indexer
 | Secret | Required | Purpose |
 |--------|----------|---------|
 | `SAS_HOST` | Yes | SAS public IP |
-| `SAS_USER` | Yes | Usually `ubuntu` |
+| `SAS_USER` | Yes | Often `root` on Alibaba SAS (root-only login) |
 | `SAS_SSH_KEY` | Yes | Private key for SSH |
 | `SAS_PORT` | No | Default 22 |
 | `NEXT_PUBLIC_API_KEY` | Recommended | Baked into dashboard build + match backend `API_KEY` |
+
+App processes run as a dedicated **`polkaudit`** Linux user created by `setup-sas.sh` — not as root — even when you SSH as root.
 
 Optional overrides: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_DASHBOARD_URL`, …
 

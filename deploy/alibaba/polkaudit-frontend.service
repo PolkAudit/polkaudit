@@ -6,8 +6,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=ubuntu
-Group=ubuntu
+User=polkaudit
+Group=polkaudit
 WorkingDirectory=/opt/polkaudit/apps/frontend/.next/standalone
 EnvironmentFile=/etc/polkaudit/frontend.env
 ExecStart=/usr/bin/node server.js
