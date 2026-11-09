@@ -90,19 +90,22 @@ Triggers: push to `main` touching backend/indexer/frontend/landing/deploy/alibab
 
 Point these **A** records at the SAS public IP:
 
-| Host | App |
-|------|-----|
-| `polkaudit.xyz` / `www` | Landing `:3001` |
-| `app.polkaudit.xyz` | Dashboard `:3000` |
-| `api.polkaudit.xyz` | API `:8080` |
+| Host | App | Public? |
+|------|-----|---------|
+| `app.polkaudit.xyz` | Dashboard `:3000` | **Yes** |
+| `api.polkaudit.xyz` | API `:8080` | **Yes** (browser clients need it) |
+| `polkaudit.xyz` / `www` | Landing `:3001` | Optional but recommended |
+| `indexer.polkaudit.xyz` | — | **No** — do not expose; indexer is a local systemd worker only |
 
-Then TLS:
+Indexer talks to Postgres + chain RPC on the box (`127.0.0.1`). API for **SSR** also uses localhost via `INTERNAL_API_URL=http://127.0.0.1:8080/api/v1` in `frontend.env`; the public `api.` hostname is still required for the browser.
+
+Then TLS (skip landing domains if you are not using them yet):
 
 ```bash
 sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx \
-  -d polkaudit.xyz -d www.polkaudit.xyz \
-  -d app.polkaudit.xyz -d api.polkaudit.xyz
+sudo certbot --nginx -d app.polkaudit.xyz -d api.polkaudit.xyz
+# optional landing:
+# sudo certbot --nginx -d polkaudit.xyz -d www.polkaudit.xyz
 ```
 
 You can **remove Vercel** projects once DNS/TLS are confirmed (or keep Vercel as backup until cutover).
