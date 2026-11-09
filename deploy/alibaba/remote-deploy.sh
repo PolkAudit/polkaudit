@@ -93,10 +93,20 @@ for unit in indexer backend frontend; do
   fi
 done
 
+# Nginx: never wipe certbot TLS. Only install base HTTP conf when 443 is absent.
 if [[ -f "$INSTALL_DIR/deploy/alibaba/nginx-polkaudit.conf" ]]; then
   as_root "
-    cp '$INSTALL_DIR/deploy/alibaba/nginx-polkaudit.conf' /etc/nginx/sites-available/polkaudit
-    ln -sfn /etc/nginx/sites-available/polkaudit /etc/nginx/sites-enabled/polkaudit
+    SITE=/etc/nginx/sites-available/polkaudit
+    if [[ -f \"\$SITE\" ]] && grep -qE 'listen[[:space:]]+443' \"\$SITE\"; then
+      echo 'nginx: preserving existing TLS site config'
+    else
+      echo 'nginx: installing base HTTP site (will reattach certs if present)'
+      cp '$INSTALL_DIR/deploy/alibaba/nginx-polkaudit.conf' \"\$SITE\"
+      ln -sfn \"\$SITE\" /etc/nginx/sites-enabled/polkaudit
+      if [[ -d /etc/letsencrypt/live/app.polkaudit.xyz ]]; then
+        certbot --nginx -d app.polkaudit.xyz -d api.polkaudit.xyz --non-interactive --reinstall --redirect || true
+      fi
+    fi
     nginx -t && systemctl reload nginx
   "
 fi
