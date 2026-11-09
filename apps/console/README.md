@@ -1,10 +1,23 @@
 # PolkAudit Console
 
-Platform admin console for PolkAudit — same modules as the governance dashboard
-(Overview, Proposals, Treasury, Alerts, Exports) plus Settings (billing, API keys,
-change password).
+SaaS **account & platform admin** UI for PolkAudit — not a duplicate of the
+governance dashboard.
 
-Public sign-up is **disabled**. Create users with `POST /api/admin/users` (admin JWT).
+| Module | Route | Purpose |
+|--------|-------|---------|
+| Home | `/` | Account summary, projects, open dashboard |
+| API keys | `/keys` | Create / revoke project API keys |
+| Billing | `/billing` | Plan + Razorpay checkout |
+| Alerts | `/alerts` | Channels, rules, history |
+| Settings | `/settings` | Password, email verify, connection |
+| Users | `/admin/users` | Invite users (admin) |
+| Projects | `/admin/projects` | Create/list tenants (admin) |
+
+Governance (Overview, Proposals, Treasury, Exports) stays on
+`https://app.polkaudit.xyz` (`apps/frontend`).
+
+Public sign-up is **disabled**. Create users with `POST /api/admin/users`
+(admin JWT) or the Users screen.
 
 Bootstrap admin is seeded by migration (`admin@polkaudit.xyz`). Forgot / reset /
 change password are available in Settings and auth pages.

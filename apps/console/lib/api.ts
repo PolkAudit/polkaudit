@@ -1,6 +1,6 @@
 /**
- * PolkAudit API client for apps/console (admin UI).
- * Governance: X-API-KEY. Account/billing/alerts: JWT + X-Project-ID.
+ * PolkAudit API client for apps/console (account & admin UI).
+ * Auth/billing/keys/alerts/admin: JWT (+ X-Project-ID where required).
  */
 
 const STORAGE_KEY = 'polkaudit_api_key_override';
@@ -92,119 +92,6 @@ export async function fetchHealth(): Promise<{ status: string }> {
   const res = await fetch(`${base}/health`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Health check failed');
   return (await res.json()) as { status: string };
-}
-
-export interface StatsOverview {
-  total_proposals: number;
-  total_votes: number;
-  total_treasury_spend: string;
-  total_blocks_indexed: number;
-  total_extrinsics: number;
-  last_indexed_block: number;
-  last_governance_block?: number;
-  governance_lag_blocks?: number;
-}
-
-export interface Proposal {
-  id: number;
-  proposal_index: number;
-  block_number: number;
-  section: string;
-  method: string;
-  proposer: string;
-  status: string;
-}
-
-export interface ProposalDetail extends Proposal {
-  description: string | null;
-  created_at: string;
-  timeline: any[];
-  votes: any[];
-  outcome: string | null;
-  raw: any;
-  title: string;
-}
-
-export interface TreasurySpend {
-  id: number;
-  block_number: number;
-  beneficiary: string;
-  value: string;
-}
-
-export interface ActivityItem {
-  type: 'proposal' | 'vote' | 'treasury';
-  title: string;
-  subtitle: string;
-  block_number: number;
-  href: string;
-  status?: string | null;
-}
-
-export interface RecentActivity {
-  items: ActivityItem[];
-  last_indexed_block: number;
-  last_governance_block: number;
-}
-
-export const api = {
-  getStats: () => fetchAPI<StatsOverview>('/stats/overview'),
-  getProposals: () => fetchAPI<Proposal[]>('/proposals'),
-  getProposalDetail: (id: string | number) => fetchAPI<ProposalDetail>(`/proposals/${id}`),
-  getTreasurySpends: () => fetchAPI<TreasurySpend[]>('/treasury/spends'),
-  getRecentActivity: (limit = 12) =>
-    fetchAPI<RecentActivity>(`/activity/recent?limit=${limit}`),
-};
-
-export async function downloadProposalsCsv() {
-  const apiKey = getEffectiveApiKey();
-  const base = getApiBaseUrl();
-  const res = await fetch(`${base}/export/proposals/csv`, {
-    headers: apiKey ? { 'X-API-KEY': apiKey } : {},
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error('Export failed');
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `proposals-export-${new Date().toISOString()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
-}
-
-export async function downloadOverviewJson() {
-  const stats = await api.getStats();
-  const blob = new Blob([JSON.stringify(stats, null, 2)], { type: 'application/json' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `overview-data-${new Date().toISOString()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
-}
-
-export async function downloadTreasuryCsv() {
-  const apiKey = getEffectiveApiKey();
-  const base = getApiBaseUrl();
-  const res = await fetch(`${base}/export/treasury/csv`, {
-    headers: apiKey ? { 'X-API-KEY': apiKey } : {},
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error('Treasury export failed');
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `treasury-export-${new Date().toISOString()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
 }
 
 const JWT_STORAGE_KEY = 'polkaudit_jwt';
@@ -384,4 +271,51 @@ export async function changePassword(
     }),
   });
 }
+
+export type MyProject = {
+  project_id: number;
+  role: string;
+  name: string | null;
+  slug: string | null;
+};
+
+export async function fetchMyProjects(): Promise<MyProject[]> {
+  return authFetch<MyProject[]>('/api/auth/projects');
+}
+
+export type ManagedKey = {
+  id: number;
+  name: string;
+  key_prefix: string;
+  revoked_at: string | null;
+};
+
+export type BillingPlan = {
+  slug: string;
+  name: string;
+  price_inr_paise?: number | null;
+  interval?: string | null;
+};
+
+export type SubscriptionInfo = {
+  status?: string | null;
+  plan?: BillingPlan | null;
+};
+
+export type AdminUser = {
+  id: number;
+  email: string;
+  role: string;
+  is_active: boolean;
+  email_verified_at: string | null;
+  created_at: string;
+};
+
+export type AdminProject = {
+  id: number;
+  name: string;
+  slug: string;
+  chain_id: string;
+  rpc_url: string;
+};
 

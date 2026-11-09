@@ -12,7 +12,6 @@ import { Badge } from '@/components/ui/badge'
 import { CheckCircle2, Copy, Loader2, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  authFetch,
   changePassword,
   clearSession,
   fetchCurrentUser,
@@ -23,28 +22,14 @@ import {
   hasApiKey,
   resendVerification,
   setApiKeyOverride,
-  startCheckout,
   type AuthUser,
 } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 
-type ManagedKey = {
-  id: number
-  name: string
-  key_prefix: string
-  revoked_at: string | null
-}
-
 export default function SettingsPage() {
   const router = useRouter()
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [managedKeys, setManagedKeys] = useState<ManagedKey[]>([])
-  const [newKeyName, setNewKeyName] = useState('default')
-  const [createdRawKey, setCreatedRawKey] = useState<string | null>(null)
-  const [planName, setPlanName] = useState<string | null>(null)
-  const [planSlug, setPlanSlug] = useState<string | null>(null)
   const [resending, setResending] = useState(false)
-  const [checkoutBusy, setCheckoutBusy] = useState<'pilot' | 'pro' | null>(null)
   const [loading, setLoading] = useState(true)
   const [useCustomKey, setUseCustomKey] = useState(() => getApiKeyOverride().enabled)
   const [apiKey, setApiKey] = useState(() => getApiKeyOverride().key)
@@ -73,22 +58,6 @@ export default function SettingsPage() {
       } catch {
         router.replace('/login')
         return
-      }
-      try {
-        const keys = await authFetch<ManagedKey[]>('/api/v1/keys/')
-        setManagedKeys(keys.filter((k) => !k.revoked_at))
-      } catch {
-        /* ignore */
-      }
-      try {
-        const sub = await authFetch<{ plan?: { name: string; slug: string } }>(
-          '/api/v1/billing/subscription'
-        )
-        setPlanName(sub.plan?.name || sub.plan?.slug || 'Free')
-        setPlanSlug(sub.plan?.slug || 'free')
-      } catch {
-        setPlanName('Free')
-        setPlanSlug('free')
       } finally {
         setLoading(false)
       }
@@ -104,56 +73,6 @@ export default function SettingsPage() {
       toast.error(e instanceof Error ? e.message : 'Could not resend')
     } finally {
       setResending(false)
-    }
-  }
-
-  const handleUpgrade = async (plan: 'pilot' | 'pro') => {
-    setCheckoutBusy(plan)
-    try {
-      const result = await startCheckout(plan)
-      if (result.mode === 'razorpay' && result.checkout_url) {
-        window.location.href = result.checkout_url
-        return
-      }
-      toast.message('Manual upgrade', {
-        description: `Contact ${result.contact || 'hello@polkaudit.xyz'} to activate ${plan}.`,
-      })
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Checkout failed')
-    } finally {
-      setCheckoutBusy(null)
-    }
-  }
-
-  const handleCreateKey = async () => {
-    try {
-      const created = await authFetch<{ raw_key: string } & ManagedKey>('/api/v1/keys/', {
-        method: 'POST',
-        body: JSON.stringify({ name: newKeyName || 'default' }),
-      })
-      setCreatedRawKey(created.raw_key)
-      setManagedKeys((prev) => [
-        {
-          id: created.id,
-          name: created.name,
-          key_prefix: created.key_prefix,
-          revoked_at: null,
-        },
-        ...prev,
-      ])
-      toast.success('API key created — copy it now')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to create key')
-    }
-  }
-
-  const handleRevokeKey = async (id: number) => {
-    try {
-      await authFetch(`/api/v1/keys/${id}/revoke`, { method: 'POST' })
-      setManagedKeys((prev) => prev.filter((k) => k.id !== id))
-      toast.success('Key revoked')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to revoke key')
     }
   }
 
@@ -331,83 +250,6 @@ export default function SettingsPage() {
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-foreground">Plan</h2>
-              <Card className="bg-card border-border p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Current plan</span>
-                  <Badge variant="outline">{planName || 'Free'}</Badge>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button
-                    variant="outline"
-                    disabled={
-                      checkoutBusy !== null || planSlug === 'pilot' || planSlug === 'pro'
-                    }
-                    onClick={() => handleUpgrade('pilot')}
-                  >
-                    {checkoutBusy === 'pilot' ? 'Starting…' : 'Upgrade to Pilot'}
-                  </Button>
-                  <Button
-                    disabled={checkoutBusy !== null || planSlug === 'pro'}
-                    onClick={() => handleUpgrade('pro')}
-                  >
-                    {checkoutBusy === 'pro' ? 'Starting…' : 'Upgrade to Pro'}
-                  </Button>
-                </div>
-              </Card>
-            </section>
-
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-foreground">Project API keys</h2>
-              <Card className="bg-card border-border p-6 space-y-4">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Input
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                    placeholder="Key name"
-                    className="sm:max-w-xs"
-                  />
-                  <Button onClick={handleCreateKey}>Create key</Button>
-                </div>
-                {createdRawKey && (
-                  <Alert className="border border-accent/40 bg-accent/5">
-                    <AlertDescription className="text-xs font-mono break-all">
-                      {createdRawKey}
-                      <button
-                        className="ml-2 inline-flex"
-                        onClick={() => copyToClipboard(createdRawKey)}
-                        type="button"
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <ul className="space-y-2">
-                  {managedKeys.map((k) => (
-                    <li
-                      key={k.id}
-                      className="flex items-center justify-between text-sm border border-border rounded px-3 py-2"
-                    >
-                      <span>
-                        <span className="font-medium">{k.name}</span>{' '}
-                        <span className="font-mono text-muted-foreground text-xs">
-                          {k.key_prefix}…
-                        </span>
-                      </span>
-                      <Button variant="ghost" size="sm" onClick={() => handleRevokeKey(k.id)}>
-                        Revoke
-                      </Button>
-                    </li>
-                  ))}
-                  {managedKeys.length === 0 && (
-                    <li className="text-xs text-muted-foreground">No active keys yet.</li>
-                  )}
-                </ul>
-              </Card>
-            </section>
-
-            <section className="space-y-3">
               <h2 className="text-lg font-semibold text-foreground">Environment</h2>
               <Card className="bg-card border-border p-6 space-y-4">
                 <div>
@@ -444,7 +286,9 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between pt-2 border-t border-border">
                   <div>
                     <p className="text-sm font-medium">Use custom API key</p>
-                    <p className="text-xs text-muted-foreground">Override for governance fetches</p>
+                    <p className="text-xs text-muted-foreground">
+                      Local override for connection tests
+                    </p>
                   </div>
                   <Switch checked={useCustomKey} onCheckedChange={setUseCustomKey} />
                 </div>
