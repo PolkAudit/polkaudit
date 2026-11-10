@@ -73,13 +73,27 @@ class AlertService:
                 logger.error("Channel not found for rule", rule_id=rule.id)
                 return
 
-            message = f"Treasury Spend Alert: {spend.value} DOT paid to {spend.beneficiary} at block {spend.block_number}"
+            from src.money import format_alert_amount, from_spend_row
+
+            amt = from_spend_row(spend)
+            message = (
+                f"Treasury Spend Alert: {format_alert_amount(spend)} "
+                f"paid to {spend.beneficiary} at block {spend.block_number}"
+            )
             success = await self.notification_service.send_notification(channel, f"Alert: {rule.name}", message)
 
             # Record History
             history = AlertHistory(
                 rule_id=rule.id,
-                payload={"spend_id": spend.id, "value": spend.value},
+                payload={
+                    "spend_id": spend.id,
+                    "value": spend.value,
+                    "amount_raw": amt.amount_raw,
+                    "asset_symbol": amt.asset_symbol,
+                    "asset_id": amt.asset_id,
+                    "display_status": amt.display_status,
+                    "amount_display": amt.amount_display,
+                },
                 status=AlertStatus.SENT if success else AlertStatus.FAILED,
                 error_message=None if success else "Failed to send",
                 project_id=project_id

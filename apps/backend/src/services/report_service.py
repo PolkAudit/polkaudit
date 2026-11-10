@@ -33,24 +33,33 @@ class ReportService:
         )
         total_proposals = proposals_result.scalar() or 0
 
-        spends_result = await self.db.execute(
-            select(func.sum(TreasurySpend.value), func.count(TreasurySpend.id)).where(TreasurySpend.block_number >= 0)
-        )
-        row = spends_result.first()
-        total_spend = float(row[0]) if row and row[0] else 0.0
-        spend_count = row[1] if row else 0
+        from src.money import aggregate_by_asset
 
-        # Risk Logic
+        spends = list(
+            (
+                await self.db.execute(
+                    select(TreasurySpend).where(TreasurySpend.block_number >= 0)
+                )
+            ).scalars().all()
+        )
+        agg = aggregate_by_asset(spends)
+        spend_count = len(spends)
+
+        # Risk Logic — only when a single resolved asset; never mix assets
         risk_score = 0.0
-        if spend_count > 0:
-            avg_spend = total_spend / spend_count
-            if avg_spend > 1000000: # Threshold
-                risk_score += 5.0
-        
+        if agg["aggregation"] == "single_asset" and agg["by_asset"]:
+            try:
+                raw_sum = int(agg["by_asset"][0]["amount_raw_sum"])
+                if spend_count > 0 and (raw_sum / spend_count) > 1_000_000:
+                    risk_score += 5.0
+            except (TypeError, ValueError, ZeroDivisionError):
+                pass
+
         summary = {
             "total_proposals": total_proposals,
-            "total_spend": total_spend,
-            "spend_count": spend_count
+            "treasury_aggregation": agg["aggregation"],
+            "treasury_by_asset": agg["by_asset"],
+            "spend_count": spend_count,
         }
 
         # 2. Generate PDF
@@ -67,7 +76,28 @@ class ReportService:
         pdf.cell(0, 10, "Summary", new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("helvetica", size=12)
         pdf.cell(0, 10, f"Total Proposals: {total_proposals}", new_x="LMARGIN", new_y="NEXT")
-        pdf.cell(0, 10, f"Total Treasury Spend: {total_spend:,.2f} DOT", new_x="LMARGIN", new_y="NEXT")
+        if agg["aggregation"] == "mixed_refused":
+            pdf.cell(
+                0,
+                10,
+                "Treasury Spend: MIXED ASSETS — totals refused (see per-asset lines)",
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
+        elif agg["by_asset"]:
+            for row in agg["by_asset"]:
+                sym = row.get("asset_symbol") or f"asset:{row.get('asset_id')}"
+                disp = row.get("amount_display_sum") or row.get("amount_raw_sum")
+                status = row.get("display_status")
+                pdf.cell(
+                    0,
+                    10,
+                    f"Treasury ({sym}): {disp} [{status}] raw={row.get('amount_raw_sum')}",
+                    new_x="LMARGIN",
+                    new_y="NEXT",
+                )
+        else:
+            pdf.cell(0, 10, "Treasury Spend: none", new_x="LMARGIN", new_y="NEXT")
         pdf.cell(0, 10, f"Number of Spends: {spend_count}", new_x="LMARGIN", new_y="NEXT")
         pdf.cell(0, 10, f"Risk Score: {risk_score}/10", new_x="LMARGIN", new_y="NEXT")
         

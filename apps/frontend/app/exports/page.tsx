@@ -65,7 +65,7 @@ export default function ExportsPage() {
       description: 'Export all treasury spends and beneficiaries',
       icon: FileText,
       format: 'CSV',
-      fields: ['id', 'block', 'beneficiary', 'value_planck'],
+      fields: ['id', 'block', 'beneficiary', 'amount_raw', 'asset_symbol', 'decimals', 'amount_display', 'display_status'],
       badge: null,
       enabled: true,
     },
