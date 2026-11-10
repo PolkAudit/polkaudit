@@ -1,0 +1,148 @@
+{
+  "chain_id": "polkadot",
+  "label": "treasury_spend201_asset_approved",
+  "block_number": 28040602,
+  "block_hash": "0xfa153a7c465c12e241d804ffc52af1e82be6b83d177e4bbbf3d578ec05a03801",
+  "source": "wss://rpc.polkadot.io via substrate-interface get_events/get_block_hash",
+  "captured_events": [
+    {
+      "event_index": 0,
+      "phase": "Initialization",
+      "extrinsic_idx": null,
+      "event": {
+        "module_id": "Treasury",
+        "event_id": "AssetSpendApproved",
+        "attributes": {
+          "index": 201,
+          "asset_kind": {
+            "V3": {
+              "location": {
+                "parents": 0,
+                "interior": {
+                  "X1": {
+                    "Parachain": 1000
+                  }
+                }
+              },
+              "asset_id": {
+                "Concrete": {
+                  "parents": 0,
+                  "interior": {
+                    "X2": [
+                      {
+                        "PalletInstance": 50
+                      },
+                      {
+                        "GeneralIndex": 1337
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "amount": 795500000000,
+          "beneficiary": {
+            "V3": {
+              "parents": 0,
+              "interior": {
+                "X1": {
+                  "AccountId32": {
+                    "network": null,
+                    "id": "0xa26556769ad6581b7beb103590a5c378955244aa349bbacc2f148c51205e055a"
+                  }
+                }
+              }
+            }
+          },
+          "valid_from": 28040602,
+          "expire_at": 29336602
+        }
+      }
+    },
+    {
+      "event_index": 2,
+      "phase": "Initialization",
+      "extrinsic_idx": null,
+      "event": {
+        "module_id": "Treasury",
+        "event_id": "UpdatedInactive",
+        "attributes": {
+          "reactivated": 109341125932610215,
+          "deactivated": 109341126057393598
+        }
+      }
+    }
+  ],
+  "parser_events": [
+    {
+      "event": {
+        "module_id": "Treasury",
+        "event_id": "AssetSpendApproved",
+        "attributes": {
+          "index": 201,
+          "asset_kind": {
+            "V3": {
+              "location": {
+                "parents": 0,
+                "interior": {
+                  "X1": {
+                    "Parachain": 1000
+                  }
+                }
+              },
+              "asset_id": {
+                "Concrete": {
+                  "parents": 0,
+                  "interior": {
+                    "X2": [
+                      {
+                        "PalletInstance": 50
+                      },
+                      {
+                        "GeneralIndex": 1337
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "amount": 795500000000,
+          "beneficiary": {
+            "V3": {
+              "parents": 0,
+              "interior": {
+                "X1": {
+                  "AccountId32": {
+                    "network": null,
+                    "id": "0xa26556769ad6581b7beb103590a5c378955244aa349bbacc2f148c51205e055a"
+                  }
+                }
+              }
+            }
+          },
+          "valid_from": 28040602,
+          "expire_at": 29336602
+        }
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "Treasury",
+        "event_id": "UpdatedInactive",
+        "attributes": {
+          "reactivated": 109341125932610215,
+          "deactivated": 109341126057393598
+        }
+      }
+    }
+  ],
+  "parser_events_note": "Sparse-filled to preserve on-chain event_index positions; non-governance slots are System.Remark placeholders."
+}

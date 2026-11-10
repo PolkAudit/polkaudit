@@ -1,0 +1,40 @@
+{
+  "chain_id": "polkadot",
+  "label": "ref1674_submit_extrinsic",
+  "block_number": 26863938,
+  "block_hash": "0xea695b0bd31b6870c3be90771659b21cd5e4eb3ede83ddd30604fcf3d8bb74e3",
+  "extrinsic_index": 2,
+  "call": {
+    "call_index": "0x1500",
+    "call_function": "submit",
+    "call_module": "Referenda",
+    "call_args": [
+      {
+        "name": "proposal_origin",
+        "type": "PalletsOriginOf",
+        "value": {
+          "Origins": "SmallTipper"
+        }
+      },
+      {
+        "name": "proposal",
+        "type": "BoundedCallOf<T, I>",
+        "value": {
+          "Lookup": {
+            "hash": "0xbe3737f1f6d5d42466e30fdb13b647cc87860783c89ca2bca9dd53a1cc23b2e5",
+            "len": 59
+          }
+        }
+      },
+      {
+        "name": "enactment_moment",
+        "type": "DispatchTime<BlockNumberFor>",
+        "value": {
+          "After": 10
+        }
+      }
+    ],
+    "call_hash": "0x2571e58d7accded8ad9b593ff2d489faa28150baab90a7da15b557ecf5fdbf30"
+  },
+  "source": "wss://rpc.polkadot.io get_block extrinsics[2]"
+}

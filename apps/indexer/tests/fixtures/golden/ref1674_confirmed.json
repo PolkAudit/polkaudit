@@ -1,0 +1,116 @@
+{
+  "chain_id": "polkadot",
+  "label": "ref1674_confirmed",
+  "block_number": 26923064,
+  "block_hash": "0xe70fffc3ed0839eacd222a840a34d7cdf0a016545174dc2856a83716460c0ee5",
+  "source": "wss://rpc.polkadot.io via substrate-interface get_events/get_block_hash",
+  "captured_events": [
+    {
+      "event_index": 3,
+      "phase": "Initialization",
+      "extrinsic_idx": null,
+      "event": {
+        "module_id": "Referenda",
+        "event_id": "Confirmed",
+        "attributes": {
+          "index": 1674,
+          "tally": {
+            "ayes": 181698906302520113,
+            "nays": 154212507772435439,
+            "support": 30619318270137007
+          }
+        }
+      }
+    },
+    {
+      "event_index": 8,
+      "phase": "Initialization",
+      "extrinsic_idx": null,
+      "event": {
+        "module_id": "Referenda",
+        "event_id": "Confirmed",
+        "attributes": {
+          "index": 1673,
+          "tally": {
+            "ayes": 181624676302520113,
+            "nays": 152859487772435439,
+            "support": 30597468270137007
+          }
+        }
+      }
+    }
+  ],
+  "parser_events": [
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "Referenda",
+        "event_id": "Confirmed",
+        "attributes": {
+          "index": 1674,
+          "tally": {
+            "ayes": 181698906302520113,
+            "nays": 154212507772435439,
+            "support": 30619318270137007
+          }
+        }
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "Referenda",
+        "event_id": "Confirmed",
+        "attributes": {
+          "index": 1673,
+          "tally": {
+            "ayes": 181624676302520113,
+            "nays": 152859487772435439,
+            "support": 30597468270137007
+          }
+        }
+      }
+    }
+  ],
+  "parser_events_note": "Sparse-filled to preserve on-chain event_index positions; non-governance slots are System.Remark placeholders."
+}

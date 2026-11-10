@@ -1,0 +1,34 @@
+{
+  "chain_id": "polkadot",
+  "label": "ref_vote_extrinsic_poll1666",
+  "block_number": 26863938,
+  "block_hash": "0xea695b0bd31b6870c3be90771659b21cd5e4eb3ede83ddd30604fcf3d8bb74e3",
+  "extrinsic_index": 3,
+  "call": {
+    "call_index": "0x1400",
+    "call_function": "vote",
+    "call_module": "ConvictionVoting",
+    "call_args": [
+      {
+        "name": "poll_index",
+        "type": "PollIndexOf<T, I>",
+        "value": 1666
+      },
+      {
+        "name": "vote",
+        "type": "AccountVote<BalanceOf<T, I>>",
+        "value": {
+          "Standard": {
+            "vote": {
+              "aye": false,
+              "conviction": "None"
+            },
+            "balance": 100000000000
+          }
+        }
+      }
+    ],
+    "call_hash": "0x423ec98704cf648f6302602b6dac80a068212e02d1450a3d41baca049dbd7d2d"
+  },
+  "source": "wss://rpc.polkadot.io get_block extrinsics[3]"
+}

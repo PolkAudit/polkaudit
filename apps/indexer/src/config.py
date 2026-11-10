@@ -20,8 +20,12 @@ class Settings(BaseSettings):
 
     # Jump to this block when DB is behind (0 = disabled). Use ~recent Polkadot height for demos.
     INDEXER_START_BLOCK: int = Field(0, env="INDEXER_START_BLOCK")
+    # Stop indexing after this height (0 = disabled / follow tip)
+    INDEXER_END_BLOCK: int = Field(0, env="INDEXER_END_BLOCK")
     # When DB is empty, start this many blocks behind finalized head
     INDEXER_CATCHUP_WINDOW: int = Field(2000, env="INDEXER_CATCHUP_WINDOW")
+    # Fail the block (no ProcessedBlock) if System.Events cannot be fetched
+    INDEXER_REQUIRE_EVENTS: bool = Field(True, env="INDEXER_REQUIRE_EVENTS")
 
     class Config:
         env_file = ".env"

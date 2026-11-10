@@ -52,6 +52,19 @@ DELETE FROM treasury_spends WHERE ${RANGE_SQL};
 DELETE FROM extrinsics WHERE ${RANGE_SQL};
 DELETE FROM blocks WHERE ${RANGE_SQL};
 DELETE FROM processed_blocks WHERE ${RANGE_SQL};
+-- Reset contiguous cursor so the next segment begins at START (table may not exist pre-migration)
+DO \$\$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_name = 'indexer_cursor'
+  ) THEN
+    DELETE FROM indexer_cursor;
+    INSERT INTO indexer_cursor (id, range_start, contiguous_through)
+    VALUES (1, ${START}, ${START} - 1);
+  END IF;
+END
+\$\$;
 COMMIT;
 SELECT
   (SELECT COUNT(*) FROM processed_blocks) AS processed_remaining,

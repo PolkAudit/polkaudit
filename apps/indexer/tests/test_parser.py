@@ -151,7 +151,22 @@ class TestChainParser:
 
         result = chain_parser.parse_block(600, ["0x04"])
 
+        # No fabricated proposal_index — Democracy.propose without index is skipped
+        assert result["proposals"] == []
+        assert len(result["extrinsics"]) == 1
+
+    def test_legacy_democracy_propose_with_index(self, parser):
+        chain_parser, mock_substrate = parser
+        mock_substrate.decode_scale.return_value = _mock_scale_obj(
+            _mock_extrinsic(
+                module="Democracy",
+                function="propose",
+                args=[{"name": "index", "value": 3}],
+            )
+        )
+        result = chain_parser.parse_block(601, ["0x05"])
         assert len(result["proposals"]) == 1
+        assert result["proposals"][0].proposal_index == 3
         assert result["proposals"][0].section == "Democracy"
 
     def test_decode_failure_does_not_store_extrinsic(self, parser):
@@ -225,3 +240,6 @@ class TestChainParser:
         assert len(result["proposals"]) == 1
         assert result["proposals"][0].proposal_index == 55
         assert result["proposals"][0].method == "Submitted"
+        assert result["proposals"][0].event_key.endswith(":e:0:Referenda.Submitted")
+        assert "polkadot/" in result["proposals"][0].event_key
+        assert result["proposals"][0].source == "event"

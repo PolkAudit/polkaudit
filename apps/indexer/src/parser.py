@@ -1,7 +1,14 @@
 import structlog
 from substrateinterface import SubstrateInterface
 from .config import settings
+from .identity import extrinsic_event_key, system_event_key, DEFAULT_CHAIN_ID
+from .assets import (
+    format_display_amount,
+    resolve_from_asset_kind,
+    resolve_native_dot,
+)
 from .models import Proposal, Vote, TreasurySpend, Extrinsic
+
 
 logger = structlog.get_logger()
 
@@ -60,6 +67,7 @@ GOVERNANCE_EVENTS = {
     ("Democracy", "NotPassed"),
     ("ConvictionVoting", "Voted"),
     ("Treasury", "SpendApproved"),
+    ("Treasury", "AssetSpendApproved"),
     ("Treasury", "Awarded"),
     ("Treasury", "Proposed"),
 }
@@ -101,17 +109,22 @@ def _normalize_vote_value(vote_value) -> str:
     if vote_value is None:
         return "unknown"
     if isinstance(vote_value, dict):
-        if "Aye" in vote_value or "aye" in vote_value:
+        if "Aye" in vote_value:
             return "Aye"
-        if "Nay" in vote_value or "nay" in vote_value:
+        if "Nay" in vote_value:
             return "Nay"
+        # Modern AccountVote / Vote types: {"aye": bool, "conviction": ...}
+        if "aye" in vote_value and isinstance(vote_value.get("aye"), bool):
+            return "Aye" if vote_value["aye"] else "Nay"
+        if "nay" in vote_value and isinstance(vote_value.get("nay"), bool):
+            return "Nay" if vote_value["nay"] else "Aye"
         if "Standard" in vote_value:
             inner = vote_value["Standard"]
             if isinstance(inner, dict):
                 vote_bit = inner.get("vote")
                 if isinstance(vote_bit, int):
                     return "Aye" if vote_bit & 0x80 else "Nay"
-                return _normalize_vote_value(inner.get("vote"))
+                return _normalize_vote_value(vote_bit if vote_bit is not None else inner.get("vote"))
         if "Split" in vote_value:
             return "Split"
         if "SplitAbstain" in vote_value:
@@ -168,6 +181,8 @@ class ChainParser:
         block_number: int,
         extrinsics: list,
         events: list | None = None,
+        block_hash: str | None = None,
+        chain_id: str = DEFAULT_CHAIN_ID,
     ) -> dict:
         """
         Decode extrinsics and extract:
@@ -176,15 +191,22 @@ class ChainParser:
         - Treasury spends
         - All decoded extrinsics (audit trail)
         Optionally merge confirmed governance from system events.
+
+        block_hash is required for chain-derived event_key identity. When omitted
+        (legacy unit tests), a synthetic hash `0xblock{number}` is used so keys
+        remain deterministic offline.
         """
         results = empty_parse_result()
+        bhash = block_hash or f"0xblock{int(block_number)}"
 
         for idx, ext_hex in enumerate(extrinsics):
             try:
                 extrinsic = self.substrate.decode_scale(
                     "Extrinsic", ext_hex, return_scale_obj=True
                 )
-                self._process_decoded_extrinsic(results, block_number, idx, extrinsic.value)
+                self._process_decoded_extrinsic(
+                    results, block_number, idx, extrinsic.value, bhash, chain_id
+                )
             except Exception as exc:
                 logger.debug(
                     "Failed to decode extrinsic",
@@ -194,7 +216,7 @@ class ChainParser:
                 )
 
         if events:
-            self._process_events(results, block_number, events)
+            self._process_events(results, block_number, events, bhash, chain_id)
 
         return results
 
@@ -204,16 +226,28 @@ class ChainParser:
         block_number: int,
         index: int,
         extrinsic_value: dict,
+        block_hash: str,
+        chain_id: str,
     ) -> None:
         call = extrinsic_value.get("call") or {}
         call_module = call.get("call_module", "Unknown")
         call_function = call.get("call_function", "unknown")
         args = call_args_to_dict(call)
         signer = signer_address(extrinsic_value)
+        ext_key = extrinsic_event_key(
+            block_number,
+            index,
+            call_module,
+            call_function,
+            block_hash=block_hash,
+            chain_id=chain_id,
+        )
 
         results["extrinsics"].append(
             Extrinsic(
                 block_number=block_number,
+                extrinsic_index=index,
+                event_key=ext_key,
                 extrinsic_hash=extrinsic_hash(extrinsic_value, block_number, index),
                 module=call_module,
                 call=call_function,
@@ -224,8 +258,18 @@ class ChainParser:
         )
 
         leaf_calls = _extract_nested_calls(call)
-        for leaf in leaf_calls:
-            self._classify_call(results, block_number, index, leaf, signer)
+        multi_leaf = len(leaf_calls) > 1
+        for leaf_i, leaf in enumerate(leaf_calls):
+            self._classify_call(
+                results,
+                block_number,
+                index,
+                leaf,
+                signer,
+                block_hash,
+                chain_id,
+                leaf_index=leaf_i if multi_leaf else None,
+            )
 
     def _classify_call(
         self,
@@ -234,32 +278,83 @@ class ChainParser:
         index: int,
         call: dict,
         signer: str | None,
+        block_hash: str,
+        chain_id: str,
+        leaf_index: int | None = None,
     ) -> None:
         call_module = call.get("call_module", "Unknown")
         call_function = call.get("call_function", "unknown")
         args = call_args_to_dict(call)
         key = (call_module, call_function)
+        event_key = extrinsic_event_key(
+            block_number,
+            index,
+            call_module,
+            call_function,
+            block_hash=block_hash,
+            chain_id=chain_id,
+            leaf_index=leaf_index,
+        )
 
         if key in GOVERNANCE_PROPOSAL_CALLS:
-            results["proposals"].append(
-                self._build_proposal(block_number, index, call_module, call_function, signer, args)
+            proposal = self._build_proposal(
+                block_number,
+                index,
+                call_module,
+                call_function,
+                signer,
+                args,
+                event_key=event_key,
             )
+            if proposal is not None:
+                results["proposals"].append(proposal)
+            else:
+                logger.info(
+                    "Skipped proposal without authoritative on-chain index",
+                    block=block_number,
+                    extrinsic_index=index,
+                    call=f"{call_module}.{call_function}",
+                )
         elif key in GOVERNANCE_VOTE_CALLS:
             results["votes"].append(
-                self._build_vote(block_number, call_module, call_function, signer, args)
+                self._build_vote(
+                    block_number,
+                    call_module,
+                    call_function,
+                    signer,
+                    args,
+                    extrinsic_index=index,
+                    event_key=event_key,
+                    leaf_index=leaf_index,
+                )
             )
         elif key in TREASURY_SPEND_CALLS:
-            spend = self._build_treasury_spend(block_number, args)
+            spend = self._build_treasury_spend(
+                block_number,
+                args,
+                extrinsic_index=index,
+                event_key=event_key,
+            )
             if spend:
                 results["treasury_spends"].append(spend)
 
-    def _process_events(self, results: dict, block_number: int, events: list) -> None:
-        """Supplement extrinsic parsing with system events (more reliable indices)."""
-        seen_refs = {p.proposal_index for p in results["proposals"]}
+    def _process_events(
+        self,
+        results: dict,
+        block_number: int,
+        events: list,
+        block_hash: str,
+        chain_id: str,
+    ) -> None:
+        """Supplement extrinsic parsing with system events (distinct event_key per index)."""
+        seen_submit_refs = {
+            p.proposal_index
+            for p in results["proposals"]
+            if p.method in ("submit", "submit_unsigned", "Submitted", "propose")
+        }
 
-        for ev in events:
+        for event_index, ev in enumerate(events):
             try:
-                # py-substrate-interface event shape varies; support common layouts
                 event = ev.get("event") if isinstance(ev, dict) else None
                 if event is None and isinstance(ev, dict):
                     event = ev
@@ -292,13 +387,25 @@ class ChainParser:
                 if not isinstance(attrs, dict):
                     attrs = {}
 
+                ekey = system_event_key(
+                    block_number,
+                    event_index,
+                    str(module),
+                    str(event_id),
+                    block_hash=block_hash,
+                    chain_id=chain_id,
+                )
+
                 if module == "Referenda" and event_id == "Submitted":
                     idx = attrs.get("index") or attrs.get("ref_index")
-                    if idx is not None and int(idx) not in seen_refs:
+                    if idx is not None and int(idx) not in seen_submit_refs:
                         results["proposals"].append(
                             Proposal(
                                 proposal_index=int(idx),
+                                event_key=ekey,
                                 block_number=block_number,
+                                event_index=event_index,
+                                source="event",
                                 section="Referenda",
                                 method="Submitted",
                                 proposer=str(attrs.get("who") or attrs.get("proposer") or "unknown"),
@@ -306,27 +413,66 @@ class ChainParser:
                                 status="Proposed",
                             )
                         )
-                        seen_refs.add(int(idx))
+                        seen_submit_refs.add(int(idx))
                 elif module == "ConvictionVoting" and event_id == "Voted":
-                    poll = attrs.get("poll_index") or attrs.get("ref_index") or attrs.get("index") or 0
+                    poll = (
+                        attrs.get("poll_index")
+                        or attrs.get("ref_index")
+                        or attrs.get("index")
+                    )
+                    # Polkadot Voted attributes may omit poll_index; do not invent 0.
+                    if poll is None:
+                        logger.debug(
+                            "Voted event missing poll_index; skipping event path",
+                            block=block_number,
+                            event_index=event_index,
+                        )
+                        continue
+                    balance = attrs.get("balance") or attrs.get("amount")
+                    vote_raw = attrs.get("vote")
+                    if balance is None and isinstance(vote_raw, dict):
+                        standard = vote_raw.get("Standard")
+                        if isinstance(standard, dict):
+                            balance = standard.get("balance")
                     results["votes"].append(
                         Vote(
                             proposal_index=int(poll),
+                            event_key=ekey,
                             block_number=block_number,
+                            event_index=event_index,
+                            source="event",
                             voter=str(attrs.get("who") or attrs.get("voter") or "unknown"),
-                            vote=_normalize_vote_value(attrs.get("vote")),
-                            balance=str(attrs.get("balance") or attrs.get("amount") or "0"),
+                            vote=_normalize_vote_value(vote_raw),
+                            balance=str(balance or "0"),
                         )
                     )
-                elif module == "Treasury" and event_id in ("Awarded", "SpendApproved"):
+                elif module == "Treasury" and event_id in (
+                    "Awarded",
+                    "SpendApproved",
+                    "AssetSpendApproved",
+                ):
                     beneficiary = attrs.get("beneficiary") or attrs.get("who")
                     amount = attrs.get("amount") or attrs.get("value") or attrs.get("award")
                     if beneficiary is not None and amount is not None:
+                        if event_id == "AssetSpendApproved":
+                            asset = resolve_from_asset_kind(attrs.get("asset_kind"))
+                        else:
+                            asset = resolve_native_dot()
+                        raw = str(amount)
                         results["treasury_spends"].append(
                             TreasurySpend(
+                                event_key=ekey,
                                 block_number=block_number,
+                                event_index=event_index,
+                                source="event",
                                 beneficiary=str(beneficiary),
-                                value=str(amount),
+                                value=raw,
+                                source_chain=asset.source_chain,
+                                asset_id=asset.asset_id,
+                                asset_symbol=asset.asset_symbol,
+                                decimals=asset.decimals,
+                                amount_display=format_display_amount(raw, asset.decimals),
+                                display_status=asset.display_status,
                             )
                         )
                 elif module == "Referenda" and event_id in (
@@ -348,7 +494,10 @@ class ChainParser:
                         results["proposals"].append(
                             Proposal(
                                 proposal_index=int(idx),
+                                event_key=ekey,
                                 block_number=block_number,
+                                event_index=event_index,
+                                source="event",
                                 section="Referenda",
                                 method=event_id,
                                 proposer=str(attrs.get("who") or "unknown"),
@@ -367,13 +516,24 @@ class ChainParser:
         method: str,
         signer: str | None,
         args: dict,
-    ) -> Proposal:
+        *,
+        event_key: str,
+    ) -> Proposal | None:
+        """Build a proposal only when an authoritative on-chain index is present.
+
+        Never substitute extrinsic index for referendum/proposal identity.
+        """
         ref_index = args.get("ref_index") or args.get("poll_index") or args.get("index")
-        proposal_index = int(ref_index) if ref_index is not None else index
+        if ref_index is None:
+            # Explicit unsupported case — wait for System.Events (e.g. Referenda.Submitted)
+            return None
 
         return Proposal(
-            proposal_index=proposal_index,
+            proposal_index=int(ref_index),
+            event_key=event_key,
             block_number=block_number,
+            extrinsic_index=index,
+            source="extrinsic",
             section=module,
             method=method,
             proposer=signer or "unknown",
@@ -388,6 +548,10 @@ class ChainParser:
         method: str,
         signer: str | None,
         args: dict,
+        *,
+        extrinsic_index: int,
+        event_key: str,
+        leaf_index: int | None = None,
     ) -> Vote:
         ref_index = (
             args.get("poll_index")
@@ -408,21 +572,46 @@ class ChainParser:
 
         return Vote(
             proposal_index=int(ref_index) if ref_index is not None else 0,
+            event_key=event_key,
             block_number=block_number,
+            extrinsic_index=extrinsic_index,
+            source="extrinsic",
             voter=signer or "unknown",
             vote=_normalize_vote_value(vote_value),
             balance=str(balance or "0"),
         )
 
-    def _build_treasury_spend(self, block_number: int, args: dict) -> TreasurySpend | None:
+    def _build_treasury_spend(
+        self,
+        block_number: int,
+        args: dict,
+        *,
+        extrinsic_index: int,
+        event_key: str,
+    ) -> TreasurySpend | None:
         beneficiary = args.get("beneficiary")
         amount = args.get("amount") or args.get("value") or args.get("award")
         # approve_proposal only has proposal_id — skip without amount
         if beneficiary is None or amount is None:
             return None
 
+        # Extrinsic spend/spend_local are native DOT unless asset_kind present
+        if args.get("asset_kind") is not None:
+            asset = resolve_from_asset_kind(args.get("asset_kind"))
+        else:
+            asset = resolve_native_dot()
+        raw = str(amount)
         return TreasurySpend(
+            event_key=event_key,
             block_number=block_number,
+            extrinsic_index=extrinsic_index,
+            source="extrinsic",
             beneficiary=str(beneficiary),
-            value=str(amount),
+            value=raw,
+            source_chain=asset.source_chain,
+            asset_id=asset.asset_id,
+            asset_symbol=asset.asset_symbol,
+            decimals=asset.decimals,
+            amount_display=format_display_amount(raw, asset.decimals),
+            display_status=asset.display_status,
         )

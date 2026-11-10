@@ -1,0 +1,488 @@
+{
+  "chain_id": "polkadot",
+  "label": "ref1674_submit_and_vote",
+  "block_number": 26863938,
+  "block_hash": "0xea695b0bd31b6870c3be90771659b21cd5e4eb3ede83ddd30604fcf3d8bb74e3",
+  "source": "wss://rpc.polkadot.io via substrate-interface get_events/get_block_hash",
+  "captured_events": [
+    {
+      "event_index": 61,
+      "phase": "ApplyExtrinsic",
+      "extrinsic_idx": 2,
+      "event": {
+        "module_id": "Referenda",
+        "event_id": "Submitted",
+        "attributes": {
+          "index": 1674,
+          "track": 30,
+          "proposal": {
+            "Lookup": {
+              "hash": "0xbe3737f1f6d5d42466e30fdb13b647cc87860783c89ca2bca9dd53a1cc23b2e5",
+              "len": 59
+            }
+          }
+        }
+      }
+    },
+    {
+      "event_index": 68,
+      "phase": "ApplyExtrinsic",
+      "extrinsic_idx": 3,
+      "event": {
+        "module_id": "ConvictionVoting",
+        "event_id": "Voted",
+        "attributes": {
+          "who": "11fx8xKPNd4zVSBxkpN8qhhaGEmNJvPgKqwhDATZQXs7dkM",
+          "vote": {
+            "Standard": {
+              "vote": {
+                "aye": false,
+                "conviction": "None"
+              },
+              "balance": 100000000000
+            }
+          }
+        }
+      }
+    }
+  ],
+  "parser_events": [
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "Referenda",
+        "event_id": "Submitted",
+        "attributes": {
+          "index": 1674,
+          "track": 30,
+          "proposal": {
+            "Lookup": {
+              "hash": "0xbe3737f1f6d5d42466e30fdb13b647cc87860783c89ca2bca9dd53a1cc23b2e5",
+              "len": 59
+            }
+          }
+        }
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "System",
+        "event_id": "Remark"
+      }
+    },
+    {
+      "event": {
+        "module_id": "ConvictionVoting",
+        "event_id": "Voted",
+        "attributes": {
+          "who": "11fx8xKPNd4zVSBxkpN8qhhaGEmNJvPgKqwhDATZQXs7dkM",
+          "vote": {
+            "Standard": {
+              "vote": {
+                "aye": false,
+                "conviction": "None"
+              },
+              "balance": 100000000000
+            }
+          }
+        }
+      }
+    }
+  ],
+  "parser_events_note": "Sparse-filled to preserve on-chain event_index positions; non-governance slots are System.Remark placeholders."
+}
