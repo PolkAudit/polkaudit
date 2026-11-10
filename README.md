@@ -1,100 +1,144 @@
 # PolkAudit
 
-**Enterprise-grade governance transparency for Polkadot** — index on-chain activity, store audit-ready records, and present them through a secure API and dashboard.
+**Governance transparency for Polkadot** — index on-chain activity, store audit-ready records, and serve them through a secure API, governance dashboard, and SaaS console.
 
-PolkAudit helps communities, investors, and auditors understand how Polkadot DAOs make decisions and spend treasury funds. Complex Substrate extrinsics become searchable records, KPIs, and exports.
+PolkAudit helps communities, treasuries, and auditors see how Polkadot governance decides and spends. Substrate extrinsics become searchable records, KPIs, CSV/PDF exports, alerts, and billed workspaces.
 
 | | |
 |---|---|
-| **Status** | MVP (active development) |
+| **Product status** | Production SaaS (Pro-ready features shipped; live Razorpay/SMTP are ops) |
 | **License** | Apache 2.0 |
-| **Stack** | Python (indexer + API) · PostgreSQL · Next.js |
-| **Target chain** | Polkadot (OpenGov + legacy democracy calls) |
+| **Stack** | Python indexer + FastAPI · PostgreSQL · Next.js |
+| **Chain** | Polkadot (OpenGov + legacy democracy calls) |
+
+**Live hosts**
+
+| Surface | URL | Who uses it |
+|---------|-----|-------------|
+| Landing | [polkaudit.xyz](https://polkaudit.xyz) | Marketing & pricing |
+| Governance dashboard | [app.polkaudit.xyz](https://app.polkaudit.xyz) | Teams viewing proposals / treasury (API key) |
+| Console | [console.polkaudit.xyz](https://console.polkaudit.xyz) | Account, billing, keys, admin (invite-only login) |
+| API | [api.polkaudit.xyz](https://api.polkaudit.xyz) | Same backend for app + console (`/docs`) |
 
 ---
 
 ## Table of contents
 
-1. [What PolkAudit does](#what-PolkAudit-does)
-2. [Architecture](#architecture)
-3. [Repository structure](#repository-structure)
-4. [Prerequisites](#prerequisites)
-5. [Quick start (local development)](#quick-start-local-development)
-6. [Environment variables](#environment-variables)
-7. [Running the stack](#running-the-stack)
-8. [What you should see in the UI](#what-you-should-see-in-the-ui)
-9. [API overview](#api-overview)
-10. [Database & migrations](#database--migrations)
-11. [Development & tests](#development--tests)
-12. [Troubleshooting](#troubleshooting)
-13. [Documentation index](#documentation-index)
-14. [Roadmap & funding readiness](#roadmap--funding-readiness)
-15. [Maintainer](#maintainer)
+1. [In one minute](#in-one-minute)
+2. [What each app does](#what-each-app-does)
+3. [Architecture](#architecture)
+4. [Repository structure](#repository-structure)
+5. [Prerequisites](#prerequisites)
+6. [Quick start (local)](#quick-start-local)
+7. [Docker Compose](#docker-compose)
+8. [Environment variables](#environment-variables)
+9. [Running the stack](#running-the-stack)
+10. [What you should see](#what-you-should-see)
+11. [API overview](#api-overview)
+12. [Plans & billing](#plans--billing)
+13. [Database & migrations](#database--migrations)
+14. [Production deploy](#production-deploy)
+15. [Development & tests](#development--tests)
+16. [Troubleshooting](#troubleshooting)
+17. [Documentation index](#documentation-index)
+18. [Security](#security)
+19. [License & maintainer](#license--maintainer)
 
 ---
 
-## What PolkAudit does
+## In one minute
 
-PolkAudit is an **open-source monorepo** with three runnable applications:
+1. An **indexer** watches Polkadot finalized blocks and writes proposals, votes, treasury spends, and an audit trail into PostgreSQL.
+2. A **backend API** reads that database and exposes stats, lists, exports, alerts, billing, and admin tools.
+3. The **governance dashboard** (`apps/frontend`) is for day-to-day chain visibility — authenticate with `X-API-KEY`.
+4. The **Console** (`apps/console`) is for SaaS account work — login with email/password (JWT). Create API keys, pay for plans, manage alerts, schedules, invoices, and (as admin) onboard tenants.
 
-| Application | Role |
-|-------------|------|
-| **Indexer** | Connects to a Polkadot RPC node, scans finalized blocks, decodes extrinsics, and writes governance/treasury/indexer tables to PostgreSQL. |
-| **Backend** | FastAPI service that reads PostgreSQL and exposes authenticated REST APIs, CSV export, and OpenAPI docs. |
-| **Dashboard** | Next.js portal for overview KPIs, proposals, treasury, exports, and settings. |
+Console workspaces isolate **keys, alerts, billing, and membership**. Governance data for the relay MVP is a **shared Polkadot index** (not a private chain per tenant).
 
-### Indexed on-chain activity (MVP)
+---
 
-| Category | Substrate modules (examples) | Stored as |
-|----------|------------------------------|-----------|
+## What each app does
+
+| Application | Path | Role |
+|-------------|------|------|
+| **Indexer** | `apps/indexer` | Async worker: RPC → decode extrinsics → PostgreSQL |
+| **Backend** | `apps/backend` | FastAPI: governance APIs, auth, billing, jobs, OpenAPI |
+| **Dashboard** | `apps/frontend` | Next.js governance UI (Overview, Proposals, Treasury, Exports) |
+| **Console** | `apps/console` | Next.js SaaS / platform-admin UI |
+| **Landing** | `apps/landing` | Marketing site (pricing in USD) |
+
+> Older docs may say `apps/dashboard`. The canonical governance UI is **`apps/frontend`**.
+
+### Indexed on-chain activity
+
+| Category | Examples | Stored as |
+|----------|----------|-----------|
 | Proposals | `Referenda.submit`, `Democracy.propose` | `proposals` |
 | Votes | `ConvictionVoting.vote`, `Democracy.vote` | `votes` |
 | Treasury | `Treasury.spend` | `treasury_spends` |
-| Audit trail | All decoded extrinsics | `extrinsics`, `blocks` |
-| Indexer state | Processed block pointer | `processed_blocks` |
-| Failures | Parse/runtime errors per block | `dead_letter_queue` |
+| Audit trail | Decoded extrinsics | `extrinsics`, `blocks` |
+| Indexer cursor | Last processed height | `processed_blocks` |
+| Failures | Parse errors | `dead_letter_queue` |
 
-Most blocks contain only routine calls (e.g. `Timestamp`, `ParaInherent`). **Blocks and extrinsics counts will grow steadily; proposals/votes may stay at zero until OpenGov activity appears in scanned blocks** — that is expected.
+Most blocks are routine (`Timestamp`, `ParaInherent`). **Blocks/extrinsics grow quickly; proposals may stay at zero until OpenGov activity appears** — that is normal.
 
-### Key features
+### Product features (high level)
 
-- Real-time finalized-block indexing
-- Governance and treasury extraction (OpenGov-aware parser)
-- REST API with API-key authentication
-- Web dashboard (Overview, Proposals, Treasury, Exports, Settings)
-- CSV export for proposals
-- JSON overview export
-- Prometheus metrics and health endpoints on the indexer
-- Alembic migrations (schema owned by backend)
+**Governance (dashboard + API)**
+
+- Finalized-block indexing with OpenGov-aware parsing  
+- Overview KPIs, proposals, treasury spends  
+- CSV export (proposals / treasury) with plan entitlements  
+- Prometheus metrics + health on the indexer  
+
+**SaaS (console + API)**
+
+- Invite-only Console (no public signup)  
+- Projects / memberships / API keys with scopes (`read`, `export`, `alerts`)  
+- USD plans + Razorpay payment links + webhook activation  
+- Manual / DOT billing notes + PDF invoices  
+- Usage metering (monthly API quotas + export counts)  
+- Alerts, scheduled exports (runner + email), reports  
+- Analytics / scoring, compliance, AI analysis, audit cases  
+- Platform admin: onboard tenant, SMTP, payments log, DB query editor, chain sync  
+
+Task board with live statuses: [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ---
 
 ## Architecture
 
 ```text
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│  Polkadot RPC   │────▶│     Indexer      │────▶│   PostgreSQL    │◀────│     Backend      │
-│  (WebSocket)    │     │  (async worker)  │     │  (shared DB)    │     │    (FastAPI)     │
-└─────────────────┘     └──────────────────┘     └────────┬────────┘     └────────┬─────────┘
-                                                            │                       │
-                                                            │                       │ HTTP + X-API-KEY
-                                                            │                       ▼
-                                                            │              ┌──────────────────┐
-                                                            │              │    Dashboard     │
-                                                            │              │    (Next.js)     │
-                                                            └──────────────│                  │
-                                                                           └──────────────────┘
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Polkadot RPC   │────▶│     Indexer      │────▶│   PostgreSQL    │
+│  (WebSocket)    │     │  (async worker)  │     │  (shared DB)    │
+└─────────────────┘     └──────────────────┘     └────────┬────────┘
+                                                            │
+                     ┌──────────────────────────────────────┤
+                     │                                      │
+                     ▼                                      ▼
+            ┌──────────────────┐                  ┌──────────────────┐
+            │     Backend      │◀── X-API-KEY ───│   Dashboard      │
+            │    (FastAPI)     │                  │  app.* (frontend)│
+            └────────┬─────────┘                  └──────────────────┘
+                     │
+                     │ JWT + X-Project-ID
+                     ▼
+            ┌──────────────────┐
+            │     Console      │
+            │ console.*        │
+            └──────────────────┘
 ```
 
 **Data flow**
 
-1. Indexer reads `chain_getFinalizedHead` / `chain_getBlock` from RPC.
-2. Extrinsics are decoded with `substrate-interface` and classified (governance vs generic).
-3. Rows are committed to PostgreSQL (same database URL as backend).
-4. Backend serves aggregated stats and lists via `/api/v1/*`.
-5. Dashboard calls the backend (server-side and client-side) with `X-API-KEY`.
+1. Indexer follows finalized heads and decodes extrinsics.  
+2. Rows land in PostgreSQL (same DB URL as the backend).  
+3. Backend serves `/api/v1/*`, `/api/auth/*`, `/api/admin/*`, `/api/jobs/*`.  
+4. Dashboard calls the API with `X-API-KEY`.  
+5. Console calls the API with `Authorization: Bearer <JWT>` and `X-Project-ID`.
 
-**Schema ownership:** Backend **Alembic** migrations create and evolve tables. The indexer **does not** run `create_all` in production flow — it expects migrations to have been applied first.
+**Schema ownership:** Backend **Alembic** migrations create/evolve tables. Run migrations **before** starting the indexer.
 
 ---
 
@@ -103,29 +147,16 @@ Most blocks contain only routine calls (e.g. `Timestamp`, `ParaInherent`). **Blo
 ```text
 polkaudit/
 ├── apps/
-│   ├── indexer/          # Blockchain ingestion worker (NOT uvicorn — use ./run.sh)
-│   │   ├── src/
-│   │   │   ├── main.py       # Entry: asyncio worker + metrics server
-│   │   │   ├── scanner.py    # Finalized block catch-up loop
-│   │   │   ├── parser.py     # OpenGov / democracy / treasury decoding
-│   │   │   └── ...
-│   │   ├── requirements.txt
-│   │   ├── run.sh
-│   │   └── README.md
-│   ├── backend/          # FastAPI API (use ./run.sh from apps/backend)
-│   │   ├── src/
-│   │   ├── migrations/       # Alembic — run before indexer
-│   │   ├── requirements.txt
-│   │   ├── run.sh
-│   │   └── README.md
-│   └── dashboard/        # Next.js 14+ App Router UI
-│       ├── app/
-│       ├── lib/api.ts
-│       ├── .env.local
-│       └── package.json
-├── docs/                 # Product, architecture, funding, setup guides
-├── Makefile              # fmt/lint/test helpers (optional)
-└── README.md             # This file
+│   ├── indexer/       # Blockchain ingestion worker (./run.sh — not uvicorn)
+│   ├── backend/       # FastAPI + Alembic migrations
+│   ├── frontend/      # Governance dashboard (app.polkaudit.xyz)
+│   ├── console/       # SaaS console (console.polkaudit.xyz)
+│   └── landing/       # Marketing site (polkaudit.xyz)
+├── deploy/            # SAS / Oracle / nginx / systemd helpers
+├── docs/              # Architecture, ops, treasury, hosting guides
+├── DEVELOPMENT.md     # Living product task board
+├── docker-compose.yml # Local full stack (optional)
+└── README.md          # This file
 ```
 
 ---
@@ -134,48 +165,49 @@ polkaudit/
 
 | Tool | Version | Notes |
 |------|---------|--------|
-| **Python** | 3.11+ | Separate venv per `apps/indexer` and `apps/backend` |
-| **Node.js** | 20+ | For dashboard |
+| **Python** | 3.11+ | Separate venv for indexer and backend |
+| **Node.js** | 20+ | Frontend, console, landing |
 | **PostgreSQL** | 15+ | Local Docker, Neon, or other hosted Postgres |
 | **Git** | any | Clone this repository |
 
-**Polkadot RPC:** Public endpoint `wss://rpc.polkadot.io` works for development. For production indexing, use a dedicated provider (OnFinality, Dwellir, etc.) to avoid rate limits.
+**Polkadot RPC:** `wss://rpc.polkadot.io` is fine for development. For production indexing, use a dedicated provider (OnFinality, Dwellir, etc.) to avoid rate limits.
 
 ---
 
-## Quick start (local development)
+## Quick start (local)
 
-### 1. Clone and enter the repo
+### 1. Clone
 
 ```bash
-git clone <your-repo-url> polkaudit
+git clone https://github.com/PolkAudit/polkaudit.git
 cd polkaudit
 ```
 
-### 2. Create PostgreSQL database
+### 2. Database
 
-Create a database (e.g. `polkaudit`) and note the connection URL.  
-Example local URL:
+Create a database (e.g. `polkaudit`) and note the URL:
 
 ```text
 postgresql://postgres:postgres@localhost:5432/polkaudit
 ```
 
-For **Neon** or other cloud Postgres, use the connection string from your provider (often `postgresql://...?sslmode=require`).
+Neon / cloud URLs often look like `postgresql://...?sslmode=require`.
 
-### 3. Configure backend environment
+### 3. Backend `.env`
 
-Create `apps/backend/.env`:
+Create `apps/backend/.env` (or copy `.env.example`):
 
 ```env
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require
 API_KEY=dev-secret-key
+SECRET_KEY=dev-jwt-secret
 LOG_LEVEL=INFO
+APP_PUBLIC_URL=http://localhost:3001
 ```
 
-Use your real credentials. The backend automatically converts this to `postgresql+asyncpg://` and applies SSL settings for Neon.
+The backend normalizes to `postgresql+asyncpg://` and SSL for Neon automatically.
 
-### 4. Run database migrations (required once)
+### 4. Migrations (required once)
 
 ```bash
 cd apps/backend
@@ -185,127 +217,60 @@ pip install -r requirements.txt
 PYTHONPATH=. alembic upgrade head
 ```
 
-### 5. Configure indexer environment
+### 5. Indexer `.env`
 
-Create `apps/indexer/.env` (same `DATABASE_URL` as backend, async driver is fine):
+Same database as backend:
 
 ```env
 DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@HOST:5432/DATABASE
 SUBSTRATE_RPC_URL=wss://rpc.polkadot.io
 LOG_LEVEL=INFO
 METRICS_PORT=8001
-
-# Optional: jump to recent Polkadot height for faster demos (recommended)
 INDEXER_START_BLOCK=31387000
 INDEXER_CATCHUP_WINDOW=2000
 ```
 
-If `INDEXER_START_BLOCK` is unset and the DB has no processed blocks, the indexer starts **2000 blocks behind** chain head. If the DB already has a lower `last_processed`, set `INDEXER_START_BLOCK` to skip ahead.
-
-### 6. Configure dashboard environment
-
-Create `apps/dashboard/.env.local`:
+### 6. Dashboard (`apps/frontend`) `.env.local`
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 API_KEY=dev-secret-key
 NEXT_PUBLIC_API_KEY=dev-secret-key
+NEXT_PUBLIC_CONSOLE_URL=http://localhost:3001
 ```
 
-`API_KEY` must match `apps/backend/.env`. `NEXT_PUBLIC_API_KEY` is required for the browser sidebar status badge.
+### 7. Console `.env.local`
 
-### 7. Install dashboard dependencies
-
-```bash
-cd apps/dashboard
-npm install
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Copy example env files (optional):
-
 ```bash
-cp apps/backend/.env.example apps/backend/.env
-cp apps/indexer/.env.example apps/indexer/.env
-cp apps/dashboard/.env.example apps/dashboard/.env.local
-# Edit DATABASE_URL and API_KEY as needed
+cd apps/frontend && npm install
+cd ../console && npm install
 ```
 
 ---
 
-## Hybrid deployment (recommended): Oracle + GCP + Neon
+## Docker Compose
 
-**Free-friendly production layout:**
-
-| Layer | Platform |
-|-------|----------|
-| Indexer | **Oracle Cloud** Always Free VM |
-| API + Dashboard | **GCP Cloud Run** (Cloud Build) |
-| Database | **Neon** PostgreSQL |
-
-**Start here:** [docs/HYBRID_DEPLOYMENT.md](docs/HYBRID_DEPLOYMENT.md)
+One command for Postgres + backend + indexer + dashboard (reviewer-friendly):
 
 ```bash
-# 1) GCP — backend + dashboard only (no paid always-on indexer)
-gcloud builds submit --config=cloudbuild.backend-dashboard.yaml \
-  --substitutions=_REGION=us-central1,_API_KEY=your-api-key
-
-# 2) Oracle VM — indexer (SSH to VM)
-sudo bash deploy/oracle/setup-indexer.sh
-sudo nano /etc/polkaudit/indexer.env
-sudo systemctl restart polkaudit-indexer
-
-# 3) Verify from laptop
-export BACKEND_URL=https://your-backend.run.app
-export API_KEY=your-api-key
-./scripts/hybrid-verify.sh
-```
-
-Env reference: [env.hybrid.example](env.hybrid.example)
-
----
-
-## GCP Cloud Build → Cloud Run
-
-- **Backend Service:** `cloudbuild.yaml`
-- **Indexer Worker Pool:** `cloudbuild.indexer-worker-pool.yaml` (separate trigger)
-
-See **[docs/GCP_CLOUD_BUILD.md](docs/GCP_CLOUD_BUILD.md)**.
-
-```bash
-gcloud builds submit --config=cloudbuild.yaml \
-  --substitutions=_REGION=us-central1,_AR_REPO=apps
-
-gcloud builds submit --config=cloudbuild.indexer-worker-pool.yaml \
-  --substitutions=_REGION=us-central1,_AR_REPO=apps
-```
-
-Dashboard UI stays on Vercel (`apps/frontend`).
----
-
-## Docker Compose (one command)
-
-Runs **Postgres + backend + indexer + dashboard** for reviewers without manual venv setup.
-
-```bash
-# From repo root
 docker compose up --build
-# or
-make dev
+# or: make dev
 ```
 
 | Service | URL |
 |---------|-----|
 | Dashboard | http://localhost:3000 |
-| Backend API / docs | http://localhost:8000 · http://localhost:8000/docs |
+| Backend / docs | http://localhost:8000 · http://localhost:8000/docs |
 | Indexer health | http://localhost:8001/health |
 
 Default API key: `dev-secret-key` (change before production).
 
-**Notes:**
-
-- First indexer run catches up ~500 blocks behind chain head (`INDEXER_CATCHUP_WINDOW` in compose).
-- For **Neon** or existing data, keep using `./run.sh` per app with your `.env` files instead of compose Postgres.
-- Verify pipeline: `make verify-e2e`
+For Neon or an existing DB, prefer `./run.sh` per app with your own `.env` files.
 
 ---
 
@@ -315,350 +280,314 @@ Default API key: `dev-secret-key` (change before production).
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL URL (`postgresql://` or `postgresql+asyncpg://`) |
-| `API_KEY` | Yes | Secret for `X-API-KEY` header on protected routes |
+| `DATABASE_URL` | Yes | PostgreSQL URL |
+| `API_KEY` | Yes | Global demo key + fallback JWT secret |
+| `SECRET_KEY` | Recommended | Dedicated JWT signing secret |
+| `APP_PUBLIC_URL` | Yes (prod) | Console URL for magic links / checkout return |
+| `API_PUBLIC_URL` | No | Public API base (default prod API host) |
+| `SMTP_*` | No | Fallback mail; Console SMTP overrides when Host is set |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | No | Enables USD payment-link checkout |
+| `RAZORPAY_WEBHOOK_SECRET` | No | Verifies `/api/v1/billing/webhook/razorpay` |
+| `CRON_SECRET` | No | Auth for `/api/jobs/*/cron` |
+| `ENABLE_SCHEDULE_WORKER` | No | In-process schedule + past_due poller (`true`/`false`) |
 | `LOG_LEVEL` | No | Default `INFO` |
 
 ### Indexer (`apps/indexer/.env`)
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Yes | Same database as backend |
+| `DATABASE_URL` | Yes | Same DB as backend |
 | `SUBSTRATE_RPC_URL` | No | Default `wss://rpc.polkadot.io` |
-| `LOG_LEVEL` | No | Default `INFO` |
-| `METRICS_PORT` | No | Health/metrics HTTP port (default `8001`) |
-| `RETRY_DELAY_SECONDS` | No | Pause when caught up (default `2`) |
-| `INDEXER_START_BLOCK` | No | If DB is behind this height, jump here (demo) |
-| `INDEXER_CATCHUP_WINDOW` | No | On empty DB, start N blocks behind head (default `2000`) |
+| `METRICS_PORT` | No | Default `8001` |
+| `INDEXER_START_BLOCK` | No | Jump cursor for faster demos |
+| `INDEXER_CATCHUP_WINDOW` | No | On empty DB, start N blocks behind head |
 
-### Dashboard (`apps/dashboard/.env.local`)
+### Frontend / Console
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_API_URL` | No | Default `http://localhost:8000/api/v1` |
-| `API_KEY` | Yes | Used by server components |
-| `NEXT_PUBLIC_API_KEY` | Yes | Used by client components / sidebar |
+| App | Key vars |
+|-----|----------|
+| `apps/frontend` | `NEXT_PUBLIC_API_URL`, `API_KEY`, `NEXT_PUBLIC_API_KEY` |
+| `apps/console` | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_APP_URL` |
 
-**Never commit `.env` or `.env.local` to Git.**
+**Never commit `.env` or `.env.local`.**
 
 ---
 
 ## Running the stack
 
-Use **three terminals**. Order matters for **data in the UI**, not for services to start.
+Use **separate terminals**. Order matters for **data**, not for processes to start.
 
 | Order | Service | Why |
 |-------|---------|-----|
-| 1 (once) | Migrations | Creates tables |
+| 1 (once) | Migrations | Creates / upgrades tables |
 | 2 | Indexer | Writes chain data |
 | 3 | Backend | Serves API |
-| 4 | Dashboard | UI |
+| 4 | Frontend | Governance UI (`:3000`) |
+| 5 | Console | SaaS UI (`:3001`) |
 
-### Terminal 1 — Indexer
+### Indexer
 
 ```bash
 cd apps/indexer
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ./run.sh
 ```
 
-**Do not** run `uvicorn` here — the indexer is an asyncio worker, not FastAPI.
+**Do not** run `uvicorn` here — this is an asyncio worker.
 
-**Healthy logs look like:**
-
-```json
-{"event": "Database connection verified", ...}
-{"event": "Successfully committed block", "extrinsics_added": 2, "governance_added": 0, ...}
-```
-
-| Endpoint | URL |
-|----------|-----|
 | Health | http://127.0.0.1:8001/health |
 | Metrics | http://127.0.0.1:8001/metrics |
 
-### Terminal 2 — Backend
+### Backend
 
 ```bash
 cd apps/backend
 source venv/bin/activate
-pip install -r requirements.txt
 ./run.sh
 ```
 
-**Do not** run bare `uvicorn` from the repo root — use `./run.sh` from `apps/backend` so the correct venv and `PYTHONPATH` are used.
-
-| Endpoint | URL |
-|----------|-----|
 | Health | http://127.0.0.1:8000/health |
 | OpenAPI | http://127.0.0.1:8000/docs |
-| Stats | http://127.0.0.1:8000/api/v1/stats/overview (requires `X-API-KEY`) |
 
-### Terminal 3 — Dashboard
+### Frontend (dashboard)
 
 ```bash
-cd apps/dashboard
+cd apps/frontend
 npm run dev
 ```
 
-| URL | http://localhost:3000 |
+→ http://localhost:3000
 
-Restart `npm run dev` after changing `.env.local`.
+### Console
+
+```bash
+cd apps/console
+npm run dev
+```
+
+→ http://localhost:3001  
+
+Bootstrap admin is seeded by migration (`admin@polkaudit.xyz`). Public signup is disabled — create users via Console admin or `POST /api/admin/users`.
 
 ---
 
-## What you should see in the UI
+## What you should see
+
+### Governance dashboard
 
 | Screen | With indexer running | Notes |
 |--------|----------------------|-------|
-| **Overview — Blocks / Extrinsics** | Increasing numbers | Proof indexing works |
-| **Overview — Proposals / Votes / Treasury** | Often `0` at first | Only non-zero when governance extrinsics are found |
-| **Proposals / Treasury tables** | May be empty | Same as above |
-| **Exports — Proposals CSV** | Header only if no proposals | Normal for quiet chain windows |
-| **Exports — Overview JSON** | Includes blocks, extrinsics, last block | Use to verify pipeline |
-| **Settings** | API key status + connection test | Match `dev-secret-key` to backend |
-
-Verify from terminal:
+| Overview — blocks / extrinsics | Increasing | Pipeline is healthy |
+| Proposals / votes / treasury | Often `0` at first | Waits for OpenGov activity |
+| Exports | CSV / JSON | Subject to plan export caps |
+| Settings | API key / Console link | Match key to backend |
 
 ```bash
-make verify-e2e
-# or:
-curl -s -H "X-API-KEY: dev-secret-key" http://127.0.0.1:8000/api/v1/stats/overview | python3 -m json.tool
+curl -s -H "X-API-KEY: dev-secret-key" \
+  http://127.0.0.1:8000/api/v1/stats/overview | python3 -m json.tool
 ```
 
-Demo screenshots: see [docs/assets/README.md](docs/assets/README.md).
+If `total_blocks_indexed` and `total_extrinsics` grow, indexing works.
 
-Example healthy response (values will vary):
+### Console
 
-```json
-{
-  "total_proposals": 0,
-  "total_votes": 0,
-  "total_treasury_spend": "0",
-  "total_blocks_indexed": 120,
-  "total_extrinsics": 240,
-  "last_indexed_block": 31387150
-}
-```
-
-If `total_blocks_indexed` and `total_extrinsics` grow, the system is working.
+| Area | Purpose |
+|------|---------|
+| API keys | Create / revoke; choose scopes |
+| Billing | Plans, checkout, manual notes, PDF invoices |
+| Usage | Monthly API + export counters |
+| Schedules | Recurring exports + **Run now** |
+| Alerts / Reports / Analytics / Audit | Workspace tooling |
+| Admin → Onboard tenant | Project + user + plan + key in one step |
+| Admin → SMTP | Platform email (Zoho: port **465** SSL, STARTTLS off) |
 
 ---
 
 ## API overview
 
-Protected routes require header:
+### Auth modes
 
-```http
-X-API-KEY: <your API_KEY from backend .env>
-```
+| Client | Auth |
+|--------|------|
+| Dashboard / scripts | `X-API-KEY: pk_…` or global `API_KEY` |
+| Console (user) | `Authorization: Bearer <JWT>` + `X-Project-ID` |
+| Admin routes | JWT with `role=admin` |
+| Cron jobs | `X-Cron-Secret: <CRON_SECRET>` |
 
-### Core MVP endpoints
+API key **scopes** (project keys): `read` (MVP lists/stats), `export` (CSV), `alerts`. Global demo key has all scopes.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Backend liveness (no API key) |
-| `GET` | `/api/v1/stats/overview` | KPIs including indexing stats |
-| `GET` | `/api/v1/proposals` | List proposals |
-| `GET` | `/api/v1/proposals/{index}` | Single proposal |
-| `GET` | `/api/v1/treasury/spends` | Treasury spend list |
-| `GET` | `/api/v1/export/proposals/csv` | Stream proposals CSV |
+### Core governance
 
-Additional routers exist for reports, alerts, scoring, AI, compliance, etc. — many are **Phase 2+** scaffolding; treat MVP scope as stats + proposals + treasury + export.
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/health` | No auth |
+| `GET` | `/api/v1/stats/overview` | KPIs |
+| `GET` | `/api/v1/proposals` | List |
+| `GET` | `/api/v1/treasury/spends` | Treasury |
+| `GET` | `/api/v1/export/proposals/csv` | CSV stream |
+| `GET` | `/api/v1/export/treasury/csv` | CSV stream |
 
-Full interactive docs: http://127.0.0.1:8000/docs
+### SaaS / ops (selection)
+
+| Area | Paths |
+|------|-------|
+| Auth | `/api/auth/token`, `/api/auth/me`, verify / reset |
+| Keys | `/api/v1/keys/` |
+| Billing | `/api/v1/billing/plans`, `checkout`, `subscription`, `invoices`, `webhook/razorpay` |
+| Usage | `/api/v1/usage/summary` |
+| Schedules | `/api/v1/schedules/` (+ `/{id}/run`) |
+| Jobs | `/api/jobs/run-schedules`, `/api/jobs/sweep-subscriptions` |
+| Admin | `/api/admin/tenants`, users, memberships, SMTP, `/api/admin/db` |
+
+Interactive docs: http://127.0.0.1:8000/docs
+
+---
+
+## Plans & billing
+
+List prices match landing midpoints (USD):
+
+| Plan | Price | Interval |
+|------|-------|----------|
+| Free | $0 | — |
+| Pilot | $1,000 | / 3 months |
+| Starter | $149 | / month |
+| Pro | $599 | / month |
+| Enterprise | Custom | Contact sales |
+
+Checkout uses **Razorpay payment links** (USD). Subscriptions get an `ends_at`; unpaid periods move to `past_due` then cancel after a **7-day grace** (job sweep). Formal **PDF invoices** are generated on payment or via Console → Billing → Generate invoice.
+
+Without Razorpay keys, checkout returns **manual** mode (`hello@polkaudit.xyz`).
 
 ---
 
 ## Database & migrations
 
-- **Tool:** Alembic (`apps/backend/migrations/`)
-- **Run from:** `apps/backend` with `PYTHONPATH=.`
-
 ```bash
 cd apps/backend
 source venv/bin/activate
 PYTHONPATH=. alembic upgrade head
-PYTHONPATH=. alembic current    # verify revision
+PYTHONPATH=. alembic current
 ```
 
-### Main tables (MVP)
+Current product migrations include usage counters, export schedules, invoices, API key scopes, and SMTP platform settings (see `apps/backend/migrations/versions/`).
 
-| Table | Purpose |
-|-------|---------|
-| `blocks` | Indexed block metadata |
-| `extrinsics` | Decoded calls (audit trail) |
-| `processed_blocks` | Indexer cursor |
-| `proposals` | Governance proposals |
-| `votes` | Votes |
-| `treasury_spends` | Treasury payouts |
-| `dead_letter_queue` | Failed block processing |
+Indexer and backend **must** share the same database.
 
-Indexer and backend share one database. Both apps must use the same `DATABASE_URL` (asyncpg form for runtime).
+---
+
+## Production deploy
+
+| Guide | Use when |
+|-------|----------|
+| [docs/ALIBABA_SAS_DEPLOY.md](docs/ALIBABA_SAS_DEPLOY.md) | Primary prod (API + console + dashboard on SAS) |
+| [docs/PRODUCTION_OPS_CHECKLIST.md](docs/PRODUCTION_OPS_CHECKLIST.md) | Go-live checklist (secrets, Razorpay, SMTP) |
+| [docs/HYBRID_DEPLOYMENT.md](docs/HYBRID_DEPLOYMENT.md) | Oracle indexer + GCP API/UI + Neon |
+| [docs/GCP_CLOUD_BUILD.md](docs/GCP_CLOUD_BUILD.md) | Cloud Build → Cloud Run |
+
+**After each deploy**
+
+1. Confirm Alembic is at head (includes `f6a7b8c9d0e1` for Pro-ready tables).  
+2. Set `SECRET_KEY`, `APP_PUBLIC_URL=https://console.polkaudit.xyz`.  
+3. Console → SMTP → save → send test (Zoho: `smtppro.zoho.com`, port `465`, STARTTLS off).  
+4. Add Razorpay USD keys + webhook → `https://api.polkaudit.xyz/api/v1/billing/webhook/razorpay`.  
+5. Optionally `ENABLE_SCHEDULE_WORKER=true` or cron `POST /api/jobs/run-schedules/cron` with `X-Cron-Secret`.
+
+Living status board: [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ---
 
 ## Development & tests
 
-### Indexer tests
-
 ```bash
-cd apps/indexer
-source venv/bin/activate
-pip install pytest pytest-asyncio
+# Indexer
+cd apps/indexer && source venv/bin/activate
 PYTHONPATH=. pytest tests/ -v
-```
 
-### Backend tests
-
-```bash
-cd apps/backend
-source venv/bin/activate
-pip install pytest pytest-asyncio
+# Backend
+cd apps/backend && source venv/bin/activate
 PYTHONPATH=. pytest tests/ -v
+
+# Frontend / Console
+cd apps/frontend && npm run build
+cd apps/console && npm run build
 ```
 
-### Dashboard
-
 ```bash
-cd apps/dashboard
-npm run build
-npm run lint
-```
-
-### Makefile (repo root)
-
-```bash
-make help    # format, lint, test targets (optional)
+make help    # optional fmt / lint / test helpers
 ```
 
 ---
 
 ## Troubleshooting
 
-### `ModuleNotFoundError: No module named 'asgi_correlation_id'` (backend)
+### `ModuleNotFoundError: asgi_correlation_id` (backend)
 
-**Cause:** Running system `uvicorn` instead of backend venv.
+Use the backend venv and `./run.sh` — not system uvicorn.
 
-**Fix:**
+### `ModuleNotFoundError: substrateinterface` (indexer)
 
-```bash
-cd apps/backend
-source venv/bin/activate
-pip install -r requirements.txt
-./run.sh
-```
+Install **`substrate-interface`** (from `requirements.txt`), not the empty `substrateinterface` stub.
 
-### `ModuleNotFoundError: No module named 'substrateinterface'` (indexer)
+### Dashboard all zeros
 
-**Cause:** Wrong PyPI package. Install **`substrate-interface`** (hyphen), not `substrateinterface` (stub).
+Check `/api/v1/stats/overview`. Growing `total_blocks_indexed` / `total_extrinsics` means indexing works; proposals stay zero until OpenGov activity is scanned.
 
-**Fix:**
+### Console SMTP send failed on Zoho port 465
 
-```bash
-cd apps/indexer
-pip uninstall -y substrateinterface
-pip install -r requirements.txt
-```
+Use **SSL on 465** (STARTTLS off). Port **587** uses STARTTLS. Prefer From address on the same mailbox domain as Username.
 
-### Indexer logs show `extrinsics_added: 0` always
+### `No API Key` in dashboard sidebar
 
-**Cause:** Broken `substrateinterface` 1.0.0 stub was installed (decode fails silently).
+Set `NEXT_PUBLIC_API_KEY` in `apps/frontend/.env.local`, restart `npm run dev`, hard-refresh.
 
-**Fix:** Same as above — reinstall from `requirements.txt` and restart `./run.sh`. You should see `extrinsics_added: 2` (or similar) per block.
+### Indexer millions of blocks behind
 
-### Dashboard shows all zeros; exports empty
+Set `INDEXER_START_BLOCK` to a recent height, or use a fresh DB with `INDEXER_CATCHUP_WINDOW=2000`.
 
-**Cause:** UI KPIs for proposals/votes/treasury are empty because `governance_added: 0` in most blocks.
+### Checkout stays Free after payment
 
-**Check:** Stats API for `total_blocks_indexed` and `total_extrinsics`. If those grow, indexing works. Wait for blocks with OpenGov activity or index a longer range.
-
-### `No API Key` badge in sidebar
-
-**Fix:** Add `NEXT_PUBLIC_API_KEY=dev-secret-key` to `apps/dashboard/.env.local`, restart `npm run dev`, hard-refresh browser. Or use Settings → enable custom key → Save.
-
-### Backend reload loops / watch errors on `venv/`
-
-**Fix:** Use `./run.sh` only (excludes `venv/` from reload). Do not run uvicorn manually with reload watching the whole app folder.
-
-### Indexer very slow / millions of blocks behind
-
-**Fix:** Set `INDEXER_START_BLOCK` in `apps/indexer/.env` to a recent Polkadot block height, or use fresh DB + `INDEXER_CATCHUP_WINDOW=2000`.
-
-### Neon / SSL connection errors
-
-Backend and indexer normalize URLs and pass `ssl=require` for `neon.tech` hosts. Use full connection string in `.env`; remove duplicate `channel_binding` issues by using the apps' built-in URL normalization.
+Webhook may lag — wait and refresh Billing. Confirm Razorpay webhook secret and USD account. Check Admin → Payments.
 
 ---
 
 ## Documentation index
 
-**Treasury voters:** start at [docs/README.md](docs/README.md)
-
 | Document | Description |
 |----------|-------------|
-| [docs/README.md](docs/README.md) | Documentation hub |
+| [MODULES_FEATURES.md](MODULES_FEATURES.md) | About PolkAudit + full modules & features map |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Product task board (what’s done / pending) |
+| [docs/README.md](docs/README.md) | Docs hub |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture |
-| [docs/SETUP.md](docs/SETUP.md) | Setup guide (see also this README) |
 | [docs/PRODUCT_OVERVIEW.md](docs/PRODUCT_OVERVIEW.md) | Product summary |
 | [docs/PolkAudit_NON_TECHNICAL_OVERVIEW.md](docs/PolkAudit_NON_TECHNICAL_OVERVIEW.md) | Non-technical explainer |
-| [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | Demo walkthrough (3–5 min) |
-| [docs/WEEKLY_REPORT.md](docs/WEEKLY_REPORT.md) | Weekly progress report |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Product roadmap |
-| [apps/indexer/README.md](apps/indexer/README.md) | Indexer setup, env, troubleshooting |
-| [apps/backend/README.md](apps/backend/README.md) | Backend API, migrations, troubleshooting |
-| [apps/frontend/](apps/frontend/) | Dashboard UI (canonical; replaces `apps/dashboard` for new work) |
-| [apps/console/](apps/console/) | SaaS account UI (`console.polkaudit.xyz` on SAS — auth, billing, API keys) |
-| [docs/HYBRID_DEPLOYMENT.md](docs/HYBRID_DEPLOYMENT.md) | **Oracle indexer + GCP API/UI + Neon** |
-| [docs/GCP_CLOUD_BUILD.md](docs/GCP_CLOUD_BUILD.md) | Cloud Build trigger + Cloud Run deploy |
-| [docs/ALIBABA_SAS_DEPLOY.md](docs/ALIBABA_SAS_DEPLOY.md) | Alibaba SAS API/indexer + GitHub Actions CD |
-| [docs/INDEXER_FREE_HOSTING.md](docs/INDEXER_FREE_HOSTING.md) | Free VM hosting (Oracle or GCP e2-micro) |
-| [docs/DEMO_HOSTING_GUIDE.md](docs/DEMO_HOSTING_GUIDE.md) | Public demo hosting and discussion launch checklist |
-| [docs/PUBLIC_PRIVATE_REPO_GUIDE.md](docs/PUBLIC_PRIVATE_REPO_GUIDE.md) | Public vs private file guide before opening the repo |
-| [docs/TREASURY_PROPOSAL.md](docs/TREASURY_PROPOSAL.md) | Polkadot Treasury Phase 1 proposal (~$10k DOT, 8 weeks) |
-| [docs/TREASURY_SUMMARY.md](docs/TREASURY_SUMMARY.md) | One-page treasury overview for voters |
-| [docs/TREASURY_SUBMISSION_CHECKLIST.md](docs/TREASURY_SUBMISSION_CHECKLIST.md) | Treasury pre-submit checklist |
-| [docs/TREASURY_REVIEWER_FAQ.md](docs/TREASURY_REVIEWER_FAQ.md) | Treasury voter Q&A |
-| [docs/POLKASSEMBLY_DISCUSSION_POST.md](docs/POLKASSEMBLY_DISCUSSION_POST.md) | Legacy Polkassembly discussion draft (archived) |
-| [docs/POLKADOT_FORUM_POST.md](docs/POLKADOT_FORUM_POST.md) | Polkadot Forum governance topic draft |
-| [deploy/oracle/README.md](deploy/oracle/README.md) | Oracle VM setup script + systemd |
-| [docs/assets/README.md](docs/assets/README.md) | Screenshot & export capture guide |
+| [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | Demo walkthrough |
+| [docs/PRODUCTION_OPS_CHECKLIST.md](docs/PRODUCTION_OPS_CHECKLIST.md) | Production go-live |
+| [docs/SAAS_READINESS_GAP.md](docs/SAAS_READINESS_GAP.md) | SaaS readiness notes |
+| [apps/console/README.md](apps/console/README.md) | Console module map |
+| [apps/backend/README.md](apps/backend/README.md) | Backend details |
+| [apps/indexer/README.md](apps/indexer/README.md) | Indexer details |
+| [docs/ALIBABA_SAS_DEPLOY.md](docs/ALIBABA_SAS_DEPLOY.md) | SAS deploy |
+| [docs/HYBRID_DEPLOYMENT.md](docs/HYBRID_DEPLOYMENT.md) | Oracle + GCP + Neon |
+| [docs/TREASURY_PROPOSAL.md](docs/TREASURY_PROPOSAL.md) | Treasury Phase 1 proposal |
 
 ---
 
-## Roadmap & funding readiness
+## Security
 
-**Current phase:** MVP — prove live Polkadot indexing, API, dashboard, and exports.
-
-**Near-term milestones:**
-
-1. End-to-end demo with screenshots and JSON/CSV exports  
-2. Push code to GitHub with CI  
-3. Public demo + Polkassembly discussion + demo video  
-4. ~~`docker-compose` for one-command reviewer setup~~ — `docker compose up` + `make dev` available  
-
-See [docs/TREASURY_SUBMISSION_CHECKLIST.md](docs/TREASURY_SUBMISSION_CHECKLIST.md) for the full checklist.
+- Do not commit `.env`, credentials, or raw API keys.  
+- Prefer a dedicated `SECRET_KEY` for JWT (do not reuse weak demo keys in prod).  
+- Rotate `API_KEY` / project keys if exposed.  
+- Restrict database network access.  
+- Admin DB explorer is **read-only** (SELECT / EXPLAIN) — still admin-only.
 
 ---
 
-## Security notes
+## License & maintainer
 
-- Rotate API keys and database passwords if they were ever shared or committed.  
-- Do not commit `.env`, `.env.local`, or credentials.  
-- Use strong `API_KEY` in production.  
-- Restrict database network access (Neon IP allowlist, etc.).
+**License:** Apache 2.0 — see [LICENSE](LICENSE).
 
----
+**Maintainer:** Vijay — Founder, Value Creating Solutions  
 
-## License
-
-Apache 2.0 — see [LICENSE](LICENSE).
-
----
-
-## Maintainer
-
-**Vijay** — Founder, Value Creating Solutions
-
-For funding, partnership, or technical questions, open an issue or contact the maintainer through your project channel.
+For funding, partnership, or technical questions, open a GitHub issue or contact via your project channel.
