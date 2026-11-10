@@ -1,0 +1,219 @@
+{
+  "database_url_host": "localhost",
+  "database": "polkaudit_p02c_e2e",
+  "stats": {
+    "total_proposals": 6,
+    "total_votes": 1,
+    "total_treasury_spend": "7.955E+11",
+    "total_blocks_indexed": 5,
+    "total_extrinsics": 18,
+    "last_indexed_block": 28040602,
+    "last_governance_block": 28040602,
+    "governance_lag_blocks": 0
+  },
+  "proposals_list": [
+    {
+      "proposal_index": 1676,
+      "block_number": 26875641,
+      "section": "Referenda",
+      "method": "Submitted",
+      "proposer": "unknown",
+      "args": {
+        "index": 1676,
+        "track": 33,
+        "proposal": {
+          "Lookup": {
+            "hash": "0xa87d898822fe42a978d45e07fbad55fdb5facb4364e67b3e201301094bef52c9",
+            "len": 60
+          }
+        }
+      },
+      "status": "Proposed",
+      "id": 4
+    },
+    {
+      "proposal_index": 1674,
+      "block_number": 26923064,
+      "section": "Referenda",
+      "method": "Confirmed",
+      "proposer": "unknown",
+      "args": {
+        "index": 1674,
+        "tally": {
+          "ayes": 181698906302520113,
+          "nays": 154212507772435439,
+          "support": 30619318270137007
+        }
+      },
+      "status": "Approved",
+      "id": 5
+    },
+    {
+      "proposal_index": 1674,
+      "block_number": 26863938,
+      "section": "Referenda",
+      "method": "Submitted",
+      "proposer": "unknown",
+      "args": {
+        "index": 1674,
+        "track": 30,
+        "proposal": {
+          "Lookup": {
+            "hash": "0xbe3737f1f6d5d42466e30fdb13b647cc87860783c89ca2bca9dd53a1cc23b2e5",
+            "len": 59
+          }
+        }
+      },
+      "status": "Proposed",
+      "id": 2
+    },
+    {
+      "proposal_index": 1673,
+      "block_number": 26923064,
+      "section": "Referenda",
+      "method": "Confirmed",
+      "proposer": "unknown",
+      "args": {
+        "index": 1673,
+        "tally": {
+          "ayes": 181624676302520113,
+          "nays": 152859487772435439,
+          "support": 30597468270137007
+        }
+      },
+      "status": "Approved",
+      "id": 6
+    },
+    {
+      "proposal_index": 2,
+      "block_number": 26875641,
+      "section": "Referenda",
+      "method": "submit",
+      "proposer": "15QNS6ZDTqd6DeHNdHihcrpoA1R824ituiPGffxRW2zfc8US",
+      "args": {
+        "proposal_origin": {
+          "Origins": "MediumSpender"
+        },
+        "proposal": {
+          "Lookup": {
+            "hash": "0xa87d898822fe42a978d45e07fbad55fdb5facb4364e67b3e201301094bef52c9",
+            "len": 60
+          }
+        },
+        "enactment_moment": {
+          "After": 14400
+        }
+      },
+      "status": "Proposed",
+      "id": 3
+    },
+    {
+      "proposal_index": 2,
+      "block_number": 26863938,
+      "section": "Referenda",
+      "method": "submit",
+      "proposer": "14m6YPTpa64jusibkvvCov4XsxW2ig7Hy3n23GpN9YVTqhUd",
+      "args": {
+        "proposal_origin": {
+          "Origins": "SmallTipper"
+        },
+        "proposal": {
+          "Lookup": {
+            "hash": "0xbe3737f1f6d5d42466e30fdb13b647cc87860783c89ca2bca9dd53a1cc23b2e5",
+            "len": 59
+          }
+        },
+        "enactment_moment": {
+          "After": 10
+        }
+      },
+      "status": "Proposed",
+      "id": 1
+    }
+  ],
+  "proposal_1674_detail": {
+    "id": 2,
+    "proposal_index": 1674,
+    "block_number": 26863938,
+    "section": "Referenda",
+    "method": "Submitted",
+    "proposer": "unknown",
+    "status": "Proposed",
+    "args": {
+      "index": 1674,
+      "track": 30,
+      "proposal": {
+        "Lookup": {
+          "hash": "0xbe3737f1f6d5d42466e30fdb13b647cc87860783c89ca2bca9dd53a1cc23b2e5",
+          "len": 59
+        }
+      }
+    },
+    "description": "On-chain Referenda.Submitted",
+    "title": "Referenda.Submitted #1674",
+    "outcome": null,
+    "votes": [],
+    "timeline": [
+      {
+        "label": "Submitted",
+        "description": "Block #26863938",
+        "completed": true,
+        "current": false
+      },
+      {
+        "label": "Voting",
+        "description": "0 vote(s) recorded",
+        "completed": false,
+        "current": true
+      },
+      {
+        "label": "Outcome",
+        "description": "Pending",
+        "completed": false,
+        "current": false
+      }
+    ],
+    "raw": {
+      "args": {
+        "index": 1674,
+        "track": 30,
+        "proposal": {
+          "Lookup": {
+            "hash": "0xbe3737f1f6d5d42466e30fdb13b647cc87860783c89ca2bca9dd53a1cc23b2e5",
+            "len": 59
+          }
+        }
+      }
+    }
+  },
+  "votes_for_1666": [
+    {
+      "id": 1,
+      "proposal_index": 1666,
+      "block_number": 26863938,
+      "voter": "11fx8xKPNd4zVSBxkpN8qhhaGEmNJvPgKqwhDATZQXs7dkM",
+      "vote": "Nay",
+      "balance": "100000000000"
+    }
+  ],
+  "treasury_list": [
+    {
+      "id": 1,
+      "block_number": 28040602,
+      "beneficiary": "{'V3': {'parents': 0, 'interior': {'X1': {'AccountId32': {'network': None, 'id': '0xa26556769ad6581b7beb103590a5c378955244aa349bbacc2f148c51205e055a'}}}}}",
+      "value": "795500000000"
+    }
+  ],
+  "proposals_csv_header": "id,index,block,section,method,proposer,status",
+  "proposals_csv_rows": 6,
+  "treasury_csv_header": "id,block,beneficiary,value_planck",
+  "treasury_csv_sample": [
+    "1,28040602,\"{'V3': {'parents': 0, 'interior': {'X1': {'AccountId32': {'network': None, 'id': '0xa26556769ad6581b7beb103590a5c378955244aa349bbacc2f148c51205e055a'}}}}}\",795500000000"
+  ],
+  "treasury_csv_notes_units": "Header is value_planck; AssetSpendApproved amount is asset raw units (USDC 6dp for spend #201), not DOT planck.",
+  "proposal_1674_first_method": "Submitted",
+  "defect_notes": [
+    "Multiple rows share proposal_index=1674 (Submitted + Confirmed); detail/first() is non-deterministic without ORDER BY.",
+    "Spurious proposal_index=2 rows from Referenda.submit extrinsic fallback appear in list/CSV alongside true referendum indices."
+  ]
+}

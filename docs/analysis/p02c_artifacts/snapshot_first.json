@@ -1,0 +1,129 @@
+{
+  "blocks_processed": [
+    {
+      "label": "ref1674_submit_and_vote",
+      "block": 26863938,
+      "hash": "0xea695b0bd31b6870c3be90771659b21cd5e4eb3ede83ddd30604fcf3d8bb74e3"
+    },
+    {
+      "label": "contiguous_plus_one",
+      "block": 26863939,
+      "hash": "0x52f847a9f5b70a7fc60b437cfc73e5d8ce02b9cedb761e6e7d3e324d986d7fa7"
+    },
+    {
+      "label": "ref1676_submitted",
+      "block": 26875641,
+      "hash": "0xe8fc63304ceafc304d7d7dd856cf9336417b278a3490a911baeff817711cab98"
+    },
+    {
+      "label": "ref1674_confirmed",
+      "block": 26923064,
+      "hash": "0xe70fffc3ed0839eacd222a840a34d7cdf0a016545174dc2856a83716460c0ee5"
+    },
+    {
+      "label": "treasury_spend201_asset_approved",
+      "block": 28040602,
+      "hash": "0xfa153a7c465c12e241d804ffc52af1e82be6b83d177e4bbbf3d578ec05a03801"
+    }
+  ],
+  "pass": "first",
+  "snapshot": {
+    "blocks": 5,
+    "extrinsics": 18,
+    "proposals": 6,
+    "votes": 1,
+    "treasury_spends": 1,
+    "processed": 5,
+    "dlq": 0,
+    "coverage": {
+      "forward_progress": 28040602,
+      "verified_contiguous_range": [
+        28040602,
+        28040602
+      ],
+      "historical_gaps": [
+        {
+          "start": 1,
+          "end": 28040601,
+          "reason": "below_verified_range"
+        },
+        {
+          "start": 1,
+          "end": 26863937,
+          "reason": "below_verified_range"
+        }
+      ],
+      "claims_full_history": false
+    },
+    "proposal_rows": [
+      {
+        "id": 1,
+        "proposal_index": 2,
+        "block_number": 26863938,
+        "method": "submit",
+        "status": "Proposed",
+        "event_key": "polkadot/0xea695b0bd31b6870c3be90771659b21cd5e4eb3ede83ddd30604fcf3d8bb74e3/26863938:x:2:Referenda.submit"
+      },
+      {
+        "id": 2,
+        "proposal_index": 1674,
+        "block_number": 26863938,
+        "method": "Submitted",
+        "status": "Proposed",
+        "event_key": "polkadot/0xea695b0bd31b6870c3be90771659b21cd5e4eb3ede83ddd30604fcf3d8bb74e3/26863938:e:61:Referenda.Submitted"
+      },
+      {
+        "id": 3,
+        "proposal_index": 2,
+        "block_number": 26875641,
+        "method": "submit",
+        "status": "Proposed",
+        "event_key": "polkadot/0xe8fc63304ceafc304d7d7dd856cf9336417b278a3490a911baeff817711cab98/26875641:x:2:Referenda.submit"
+      },
+      {
+        "id": 4,
+        "proposal_index": 1676,
+        "block_number": 26875641,
+        "method": "Submitted",
+        "status": "Proposed",
+        "event_key": "polkadot/0xe8fc63304ceafc304d7d7dd856cf9336417b278a3490a911baeff817711cab98/26875641:e:63:Referenda.Submitted"
+      },
+      {
+        "id": 5,
+        "proposal_index": 1674,
+        "block_number": 26923064,
+        "method": "Confirmed",
+        "status": "Approved",
+        "event_key": "polkadot/0xe70fffc3ed0839eacd222a840a34d7cdf0a016545174dc2856a83716460c0ee5/26923064:e:3:Referenda.Confirmed"
+      },
+      {
+        "id": 6,
+        "proposal_index": 1673,
+        "block_number": 26923064,
+        "method": "Confirmed",
+        "status": "Approved",
+        "event_key": "polkadot/0xe70fffc3ed0839eacd222a840a34d7cdf0a016545174dc2856a83716460c0ee5/26923064:e:8:Referenda.Confirmed"
+      }
+    ],
+    "vote_rows": [
+      {
+        "id": 1,
+        "proposal_index": 1666,
+        "block_number": 26863938,
+        "voter": "11fx8xKPNd4zVSBxkpN8qhhaGEmNJvPgKqwhDATZQXs7dkM",
+        "vote": "Nay",
+        "balance": "100000000000",
+        "event_key": "polkadot/0xea695b0bd31b6870c3be90771659b21cd5e4eb3ede83ddd30604fcf3d8bb74e3/26863938:x:3:ConvictionVoting.vote"
+      }
+    ],
+    "treasury_rows": [
+      {
+        "id": 1,
+        "block_number": 28040602,
+        "beneficiary": "{'V3': {'parents': 0, 'interior': {'X1': {'AccountId32': {'network': None, 'id': '0xa26556769ad6581b7beb103590a5c378955244aa349bbacc2f148c51205e055a'}}}}}",
+        "value": "795500000000",
+        "event_key": "polkadot/0xfa153a7c465c12e241d804ffc52af1e82be6b83d177e4bbbf3d578ec05a03801/28040602:e:0:Treasury.AssetSpendApproved"
+      }
+    ]
+  }
+}

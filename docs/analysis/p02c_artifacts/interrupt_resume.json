@@ -1,0 +1,26 @@
+{
+  "before": {
+    "treasury": 1,
+    "processed_28040602": 1,
+    "dlq": 0
+  },
+  "after_delete_ack": {
+    "treasury": 1,
+    "processed_28040602": 0,
+    "dlq": 0
+  },
+  "interrupt_raised": true,
+  "after_fail": {
+    "treasury": 1,
+    "processed_28040602": 0,
+    "dlq": 1
+  },
+  "after_resume": {
+    "treasury": 1,
+    "processed_28040602": 1,
+    "dlq": 1
+  },
+  "treasury_event_key": "polkadot/0xfa153a7c465c12e241d804ffc52af1e82be6b83d177e4bbbf3d578ec05a03801/28040602:e:0:Treasury.AssetSpendApproved",
+  "treasury_value": "795500000000",
+  "idempotent": true
+}
