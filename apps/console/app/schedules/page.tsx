@@ -18,6 +18,10 @@ type Schedule = {
   export_type: string
   cadence: string
   is_active: boolean
+  notify_email?: string | null
+  last_run_at?: string | null
+  last_status?: string | null
+  last_error?: string | null
 }
 
 export default function SchedulesPage() {
@@ -27,6 +31,7 @@ export default function SchedulesPage() {
   const [name, setName] = useState('weekly-exports')
   const [exportType, setExportType] = useState('proposals')
   const [cadence, setCadence] = useState('weekly')
+  const [notifyEmail, setNotifyEmail] = useState('')
   const [busy, setBusy] = useState(false)
 
   const load = async () => {
@@ -55,7 +60,12 @@ export default function SchedulesPage() {
     try {
       await authFetch('/api/v1/schedules/', {
         method: 'POST',
-        body: JSON.stringify({ name, export_type: exportType, cadence }),
+        body: JSON.stringify({
+          name,
+          export_type: exportType,
+          cadence,
+          notify_email: notifyEmail.trim() || null,
+        }),
       })
       toast.success('Schedule created')
       await load()
@@ -71,14 +81,20 @@ export default function SchedulesPage() {
       <Header title="Scheduled exports" showSearch={false} />
       <main className="p-6 max-w-3xl space-y-6">
         <p className="text-sm text-muted-foreground">
-          Configure recurring export jobs (Pro landing feature). Runner can be wired to a
-          cron later; schedules are stored and toggleable now.
+          Recurring CSV exports emailed when due. Run now for a one-off; the backend worker /
+          cron picks up due jobs automatically when enabled.
         </p>
 
         <Card className="bg-card border-border p-6">
           <form onSubmit={create} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
+              <Input
+                type="email"
+                value={notifyEmail}
+                onChange={(e) => setNotifyEmail(e.target.value)}
+                placeholder="Notify email (optional)"
+              />
               <select
                 className="h-10 rounded-md border border-border bg-background px-3 text-sm"
                 value={exportType}
@@ -123,12 +139,38 @@ export default function SchedulesPage() {
                   <p className="font-medium">{r.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {r.export_type} · {r.cadence}
+                    {r.notify_email ? ` · ${r.notify_email}` : ''}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Last:{' '}
+                    {r.last_run_at
+                      ? `${new Date(r.last_run_at).toLocaleString()} (${r.last_status || '—'})`
+                      : 'never'}
+                    {r.last_error ? ` · ${r.last_error}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant={r.is_active ? 'default' : 'secondary'}>
                     {r.is_active ? 'Active' : 'Paused'}
                   </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        await authFetch(`/api/v1/schedules/${r.id}/run`, {
+                          method: 'POST',
+                          body: '{}',
+                        })
+                        toast.success('Export ran')
+                        await load()
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : 'Run failed')
+                      }
+                    }}
+                  >
+                    Run now
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"

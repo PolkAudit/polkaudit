@@ -291,8 +291,45 @@ export type ManagedKey = {
   id: number;
   name: string;
   key_prefix: string;
+  scopes?: string | null;
   revoked_at: string | null;
 };
+
+export type InvoiceInfo = {
+  id: number;
+  invoice_number: string;
+  plan_slug?: string | null;
+  amount_usd_cents: number;
+  currency: string;
+  status: string;
+  issued_at?: string | null;
+};
+
+/** Authenticated binary download (PDF invoices, etc.). */
+export async function authDownload(path: string, filename: string): Promise<void> {
+  const base = getApiBaseUrl().replace('/api/v1', '');
+  const token = getAuthToken();
+  const projectId =
+    typeof window !== 'undefined' ? localStorage.getItem('polkaudit_project_id') : null;
+  const res = await fetch(`${base}${path}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(projectId ? { 'X-Project-ID': projectId } : {}),
+    },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(formatApiError(err, res.status));
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export type BillingPlan = {
   id?: number;
@@ -324,6 +361,8 @@ export type SubscriptionInfo = {
   status?: string | null;
   plan?: BillingPlan | null;
   billing_note?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
 };
 
 export type AdminUser = {

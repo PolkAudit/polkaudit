@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Copy, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -16,10 +17,13 @@ import {
   type ManagedKey,
 } from '@/lib/api'
 
+const SCOPE_OPTIONS = ['read', 'export', 'alerts'] as const
+
 export default function KeysPage() {
   const router = useRouter()
   const [managedKeys, setManagedKeys] = useState<ManagedKey[]>([])
   const [newKeyName, setNewKeyName] = useState('default')
+  const [scopes, setScopes] = useState<string[]>([...SCOPE_OPTIONS])
   const [createdRawKey, setCreatedRawKey] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -40,11 +44,21 @@ export default function KeysPage() {
     })()
   }, [router])
 
+  const toggleScope = (scope: string) => {
+    setScopes((prev) =>
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]
+    )
+  }
+
   const handleCreateKey = async () => {
+    if (scopes.length === 0) {
+      toast.error('Select at least one scope')
+      return
+    }
     try {
       const created = await authFetch<{ raw_key: string } & ManagedKey>('/api/v1/keys/', {
         method: 'POST',
-        body: JSON.stringify({ name: newKeyName || 'default' }),
+        body: JSON.stringify({ name: newKeyName || 'default', scopes }),
       })
       setCreatedRawKey(created.raw_key)
       setManagedKeys((prev) => [
@@ -52,6 +66,7 @@ export default function KeysPage() {
           id: created.id,
           name: created.name,
           key_prefix: created.key_prefix,
+          scopes: created.scopes,
           revoked_at: null,
         },
         ...prev,
@@ -82,8 +97,9 @@ export default function KeysPage() {
       <Header title="API keys" showSearch={false} />
       <main className="p-6 max-w-2xl space-y-6">
         <p className="text-sm text-muted-foreground">
-          Project keys for the governance dashboard (`X-API-KEY`). Copy new keys immediately —
-          the full secret is shown once.
+          Project keys for the governance dashboard (`X-API-KEY`). Scopes limit what each key
+          can call: <span className="font-mono">read</span>,{' '}
+          <span className="font-mono">export</span>, <span className="font-mono">alerts</span>.
         </p>
 
         {loading ? (
@@ -101,6 +117,18 @@ export default function KeysPage() {
                 className="sm:max-w-xs"
               />
               <Button onClick={handleCreateKey}>Create key</Button>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {SCOPE_OPTIONS.map((s) => (
+                <label key={s} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={scopes.includes(s)}
+                    onChange={() => toggleScope(s)}
+                  />
+                  <span className="font-mono">{s}</span>
+                </label>
+              ))}
             </div>
             {createdRawKey && (
               <Alert className="border border-accent/40 bg-accent/5">
@@ -120,12 +148,21 @@ export default function KeysPage() {
               {managedKeys.map((k) => (
                 <li
                   key={k.id}
-                  className="flex items-center justify-between text-sm border border-border rounded px-3 py-2"
+                  className="flex items-center justify-between gap-2 text-sm border border-border rounded px-3 py-2"
                 >
-                  <span>
-                    <span className="font-medium">{k.name}</span>{' '}
-                    <span className="font-mono text-muted-foreground text-xs">
-                      {k.key_prefix}…
+                  <span className="space-y-1">
+                    <span className="block">
+                      <span className="font-medium">{k.name}</span>{' '}
+                      <span className="font-mono text-muted-foreground text-xs">
+                        {k.key_prefix}…
+                      </span>
+                    </span>
+                    <span className="flex flex-wrap gap-1">
+                      {(k.scopes || 'read,export,alerts').split(',').map((s) => (
+                        <Badge key={s} variant="outline" className="text-[10px] font-mono">
+                          {s.trim()}
+                        </Badge>
+                      ))}
                     </span>
                   </span>
                   <Button variant="ghost" size="sm" onClick={() => handleRevokeKey(k.id)}>

@@ -1,6 +1,6 @@
 # PolkAudit — Development task board
 
-**Last updated:** 2026-11-09 (usage metering, schedules, advanced Console UIs, DB editor)  
+**Last updated:** 2026-11-10 (Pro-ready: schedules runner, audit depth, invoices, key scopes, past_due)  
 **Hosts:** Landing `polkaudit.xyz` · Dashboard `app.polkaudit.xyz` · Console `console.polkaudit.xyz` · API `api.polkaudit.xyz`
 
 Status legend:
@@ -35,20 +35,20 @@ Related: [docs/PRODUCTION_OPS_CHECKLIST.md](docs/PRODUCTION_OPS_CHECKLIST.md) ·
 | Task | Route / API | Status | Notes |
 |------|-------------|--------|-------|
 | Home (account + projects summary) | `/` | Complete | |
-| API keys CRUD | `/keys` | Complete | JWT + `X-Project-ID` |
+| API keys CRUD + scopes | `/keys` | Complete | `read` / `export` / `alerts` |
 | Billing (USD midpoints + checkout) | `/billing` | Partial | Code complete; needs Razorpay live keys |
 | Payment success callback UX | `/billing` | Complete | Razorpay return + refresh |
 | Tenant payment history | `/billing` | Complete | `GET /api/v1/billing/payments` |
 | Manual / DOT billing notes | `/billing` | Complete | `POST /api/v1/billing/manual-note` |
-| Receipts stub (payment events) | `/billing` | Partial | Ledger via webhook events; no PDF invoices |
+| Invoice PDFs | `/billing` | Complete | Generate + download; also created on Razorpay paid |
 | Usage dashboard | `/usage` | Complete | Monthly API + export counters |
 | Analytics + scoring | `/analytics` | Complete | Trends / forecast / generate + scores |
-| Scheduled exports | `/schedules` | Complete | CRUD + toggle; runner is config-only MVP |
+| Scheduled exports + run now | `/schedules` | Complete | CRUD, notify email, runner + last_run |
 | Reports | `/reports` | Complete | Generate / list / download |
 | Integrations | `/integrations` | Complete | Plugins + test dispatch (admin) |
 | Compliance | `/compliance` | Complete | Policies + violations UI |
 | AI analysis | `/ai` | Complete | Analyze + recommendations (admin/auditor) |
-| Audit cases | `/audit` | Complete | Cases list/create (admin/auditor) |
+| Audit cases (detail / evidence / comments) | `/audit` | Complete | Project-scoped; reopen supported |
 | Alerts (channels / rules / history) | `/alerts` | Complete | |
 | Settings (password, verify, connection) | `/settings` | Complete | |
 | Login / forgot / reset / verify | `/login` etc. | Complete | |
@@ -68,7 +68,7 @@ Related: [docs/PRODUCTION_OPS_CHECKLIST.md](docs/PRODUCTION_OPS_CHECKLIST.md) ·
 | Projects list / create | `/admin/projects` | Complete | Links to tenant detail |
 | Platform billing (set plan) | `/admin/billing` | Complete | Project picker |
 | Payment events log | `/admin/payments` | Complete | Webhook audit |
-| SMTP settings + test send | `/admin/smtp` | Partial | UI/API done; needs real SMTP provider filled |
+| SMTP settings + test send | `/admin/smtp` | Partial | Port 465 SSL fixed; needs live Zoho test |
 | Seed bootstrap admin | Migration | Complete | `admin@polkaudit.xyz` |
 | DB Query Editor (read-only) | `/admin/database` | Complete | SELECT/EXPLAIN + table browse |
 | Chain sync trigger | `/admin/chains` | Complete | Background sync for project |
@@ -82,14 +82,14 @@ Related: [docs/PRODUCTION_OPS_CHECKLIST.md](docs/PRODUCTION_OPS_CHECKLIST.md) ·
 | Plans table + USD midpoints | Complete | Pilot $1000/3mo · Starter $149/mo · Pro $599/mo · Enterprise quote |
 | Checkout payment links (USD) | Partial | Code uses USD; needs Razorpay account + keys |
 | Webhook activate subscription | Partial | Code ready; needs webhook secret + URL on SAS |
-| Admin set subscription | Complete | |
+| Admin set subscription | Complete | Sets `ends_at` from plan interval |
 | Verified-email required for checkout | Complete | |
-| Invoice ledger (formal invoices table/PDF) | Deferred | Payment events + receipts stub in Console |
-| DOT / manual invoice workflow in Console | Complete | Manual billing note on subscription |
-| Razorpay recurring Subscriptions API | Deferred | One-shot payment links only |
-| `past_due` / grace / dunning | Deferred | |
-| Usage dashboard (exports, API calls, retention) | Complete | `/usage` + metering |
-| Tenant detail page (plan + members + keys + usage) | Complete | `/admin/tenants/[id]` |
+| Invoice PDFs | Complete | `invoices` table + fpdf2; webhook auto-create |
+| DOT / manual invoice workflow in Console | Complete | Manual note + Generate invoice |
+| Razorpay recurring Subscriptions API | Deferred | One-shot payment links; period via `ends_at` |
+| `past_due` / grace / dunning | Complete | 7-day grace then cancel; job sweep |
+| Usage dashboard | Complete | `/usage` + metering |
+| Tenant detail page | Complete | `/admin/tenants/[id]` |
 
 **List prices (locked midpoints from landing):**
 
@@ -112,11 +112,11 @@ Related: [docs/PRODUCTION_OPS_CHECKLIST.md](docs/PRODUCTION_OPS_CHECKLIST.md) ·
 | Forgot / reset password | Partial | Same as above |
 | Dedicated `SECRET_KEY` for JWT | Partial | Supported; set on SAS (else falls back to `API_KEY`) |
 | Per-project API keys (`pk_…`) | Complete | |
+| Granular API key scopes | Complete | `read` / `export` / `alerts` enforced on MVP + export |
 | Export daily caps by plan | Complete | |
 | Plan RPM limits on MVP/export APIs | Complete | free 30 · starter 60 · pilot 120 · pro 300 · enterprise/demo 600 |
-| Monthly API quotas (landing 5k / 100k) | Complete | Metered via `usage_counters`; free 1k · starter 5k · pilot 20k · pro 100k · enterprise unlimited |
-| Granular API key permission scopes | Partial | Landing claims scopes; keys are mostly project-level today |
-| Global demo `API_KEY` for dashboard | Complete | Intentional for shared demo |
+| Monthly API quotas (landing 5k / 100k) | Complete | Metered via `usage_counters` |
+| Global demo `API_KEY` for dashboard | Complete | All scopes |
 | Separate rate limit store (Redis) | Deferred | In-process counters on single SAS |
 
 ---
@@ -151,14 +151,15 @@ Related: [docs/PRODUCTION_OPS_CHECKLIST.md](docs/PRODUCTION_OPS_CHECKLIST.md) ·
 | Task | Status | Notes |
 |------|--------|-------|
 | GitHub Actions build + deploy dashboard + console | Complete | |
-| Alembic on deploy | Complete | Includes `e5f6a7b8c9d0` usage/schedules |
+| Alembic on deploy | Complete | Through `f6a7b8c9d0e1` |
 | Nginx / services for app, api, console | Complete | |
 | Set `APP_PUBLIC_URL=https://console.polkaudit.xyz` | Pending | Confirm on server |
 | Set Razorpay live keys (USD) | Pending | |
 | Register Razorpay webhook | Pending | `…/api/v1/billing/webhook/razorpay` |
 | Set `SECRET_KEY` in `backend.env` | Pending | Recommended |
-| Configure SMTP (Console UI or env) + test | Pending | |
-| Confirm migrations through `e5f6a7b8c9d0` on prod | Pending | After latest deploys |
+| Configure SMTP (Console UI or env) + test | Pending | Zoho 465 SSL path fixed in code |
+| Confirm migrations through `f6a7b8c9d0e1` on prod | Pending | After latest deploys |
+| Optional `ENABLE_SCHEDULE_WORKER=true` or cron | Pending | `/api/jobs/run-schedules` + `CRON_SECRET` |
 | GCP Cloud Run as secondary host for SaaS env | Partial | `cloudbuild.yaml` incomplete for Razorpay/SMTP |
 
 ---
@@ -174,27 +175,23 @@ Related: [docs/PRODUCTION_OPS_CHECKLIST.md](docs/PRODUCTION_OPS_CHECKLIST.md) ·
 
 ---
 
-## 10. Landing / Pro-tier gaps (high value)
-
-Features promised or strongly implied on [polkaudit.xyz](https://polkaudit.xyz) that are incomplete in product:
+## 10. Landing / Pro-tier gaps
 
 | Task | Status | Notes |
 |------|--------|-------|
 | Live Razorpay USD + webhook | Pending | Ops; code ready |
 | Live SMTP delivery | Pending | Ops; Console UI ready |
 | Governance analytics (Pro) | Complete | Console `/analytics` + scoring |
-| Scheduled / automated exports (Pro) | Partial | Schedules CRUD shipped; cron worker not yet |
+| Scheduled / automated exports (Pro) | Complete | Runner + notify email + Run now |
 | Monthly API quota metering (5k / 100k) | Complete | See §5 |
-| Formal invoices / receipts | Deferred | Receipts stub via payment events |
-| Governance Audit Snapshot productized flow | Deferred | Landing one-time package; audit cases UI exists |
+| Formal invoices / receipts | Complete | PDF invoices |
+| Governance Audit Snapshot productized flow | Partial | Audit cases + evidence UI; packaged service still sales-led |
 | Custom chain / data work package | Deferred | Services offer, not self-serve product |
 | Demo video on landing | Pending | Landing “coming soon” |
 
 ---
 
 ## 11. Advanced modules (API vs UI)
-
-Backend scaffolds exist for several advanced areas; Console coverage:
 
 | Module | Backend API | Product UI | Status |
 |--------|-------------|------------|--------|
@@ -203,10 +200,11 @@ Backend scaffolds exist for several advanced areas; Console coverage:
 | Governance scoring | Yes | `/analytics` | Complete |
 | Analytics (generate / trends / forecast) | Yes | `/analytics` | Complete |
 | AI proposal analysis / recommendations | Yes | `/ai` | Complete |
-| Audit cases / evidence / comments | Yes | `/audit` | Partial | Cases create/list; evidence UI thin |
+| Audit cases / evidence / comments | Yes | `/audit` | Complete |
 | Reports generation / download | Yes | `/reports` | Complete |
 | Chain sync admin | Yes | `/admin/chains` | Complete |
-| DB Query Editor | Yes | `/admin/database` | Complete | Read-only |
+| DB Query Editor | Yes | `/admin/database` | Complete |
+| Jobs (schedules + past_due sweep) | Yes | Admin/cron HTTP | Complete |
 
 ---
 
@@ -215,23 +213,21 @@ Backend scaffolds exist for several advanced areas; Console coverage:
 | Task | Status | Priority hint |
 |------|--------|---------------|
 | Self-serve signup → pay → provision | Deferred | After pilots |
-| Formal invoices + receipts PDFs | Deferred | After paid pilots |
-| Razorpay recurring + dunning | Deferred | |
-| Export schedule cron worker | Pending | Schedules stored; needs runner |
+| Razorpay recurring Subscriptions API | Deferred | Periods via `ends_at` for now |
 | SSO / SAML | Deferred | Enterprise |
 | Dedicated environment / SLA tooling | Deferred | Enterprise |
 | True parachain / private index isolation | Deferred | Enterprise |
-| Granular API key scopes | Partial | See §5 |
+| Evidence object storage (S3) | Deferred | URL+hash today |
+| Landing demo video | Pending | Marketing |
 
 ---
 
 ## Suggested next actions (human / ops)
 
-1. After CI green: hard-refresh Console.
-2. Console → **SMTP** → save + send test.
+1. Deploy + migrate to `f6a7b8c9d0e1`.
+2. Console → **SMTP** → port 465, STARTTLS off → Save → Send test.
 3. Add Razorpay USD keys + webhook on SAS.
-4. Set `SECRET_KEY` + confirm `APP_PUBLIC_URL`.
-5. Smoke: Onboard tenant → API key → dashboard → Billing checkout (test mode if needed).
-6. Confirm Alembic reaches `e5f6a7b8c9d0` (usage_counters + export_schedules).
+4. Set `SECRET_KEY`, `APP_PUBLIC_URL`; optionally `ENABLE_SCHEDULE_WORKER=true` or cron `POST /api/jobs/run-schedules/cron` with `X-Cron-Secret`.
+5. Smoke: Onboard → scoped API key → Schedules Run now → Billing Generate invoice.
 
 When updating this file, change **Last updated** and flip statuses only.

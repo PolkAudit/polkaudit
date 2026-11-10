@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from src.database import get_db
-from src.auth import get_api_key
+from src.auth import get_api_key, require_api_scopes
 from src.services.plan_rate_limit import enforce_plan_rate_limit
 from src.schemas.proposal import ProposalResponse
 
@@ -16,7 +16,12 @@ from src.schemas.treasury import TreasurySpendResponse
 from src.schemas.vote import ProposalDetailResponse, VoteResponse
 from src.schemas.activity import RecentActivityResponse
 
-router = APIRouter(dependencies=[Depends(enforce_plan_rate_limit)])
+router = APIRouter(
+    dependencies=[
+        Depends(enforce_plan_rate_limit),
+        Depends(require_api_scopes("read")),
+    ]
+)
 
 @router.get("/stats/overview", response_model=StatsOverview)
 async def get_stats(

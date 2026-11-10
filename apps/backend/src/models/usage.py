@@ -28,4 +28,8 @@ class ExportSchedule(Base):
     export_type = Column(String, nullable=False, default="proposals")  # proposals | treasury | both
     cadence = Column(String, nullable=False, default="weekly")  # daily | weekly | monthly
     is_active = Column(Integer, nullable=False, default=1)  # 1/0 for broad DB compat
+    notify_email = Column(String, nullable=True)
+    last_run_at = Column(DateTime(timezone=True), nullable=True)
+    last_status = Column(String, nullable=True)
+    last_error = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

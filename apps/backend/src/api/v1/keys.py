@@ -8,19 +8,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database import get_db
 from src.dependencies import get_current_active_user, get_current_project
 from src.models.user import User
-from src.services.api_key_service import ApiKeyService
+from src.services.api_key_service import ALLOWED_SCOPES, ApiKeyService, DEFAULT_SCOPES
 
 router = APIRouter()
 
 
 class ApiKeyCreate(BaseModel):
     name: str = Field(default="default", max_length=64)
+    scopes: Optional[List[str]] = None
 
 
 class ApiKeyResponse(BaseModel):
     id: int
     name: str
     key_prefix: str
+    scopes: str = DEFAULT_SCOPES
     created_at: Optional[datetime] = None
     revoked_at: Optional[datetime] = None
 
@@ -30,6 +32,14 @@ class ApiKeyResponse(BaseModel):
 
 class ApiKeyCreatedResponse(ApiKeyResponse):
     raw_key: str
+
+
+@router.get("/scopes")
+async def list_available_scopes(
+    current_user: User = Depends(get_current_active_user),
+):
+    _ = current_user
+    return {"scopes": sorted(ALLOWED_SCOPES), "default": DEFAULT_SCOPES}
 
 
 @router.get("/", response_model=List[ApiKeyResponse])
@@ -52,11 +62,12 @@ async def create_api_key(
 ):
     _ = current_user
     service = ApiKeyService(db)
-    record, raw = await service.create_key(project_id, body.name)
+    record, raw = await service.create_key(project_id, body.name, body.scopes)
     return ApiKeyCreatedResponse(
         id=record.id,
         name=record.name,
         key_prefix=record.key_prefix,
+        scopes=record.scopes or DEFAULT_SCOPES,
         created_at=record.created_at,
         revoked_at=record.revoked_at,
         raw_key=raw,

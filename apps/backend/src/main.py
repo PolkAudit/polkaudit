@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from asgi_correlation_id import CorrelationIdMiddleware
@@ -11,12 +14,35 @@ from src.errors import global_exception_handler, rate_limit_handler, RateLimitEx
 
 configure_logging()
 
+_worker_stop: asyncio.Event | None = None
+_worker_task: asyncio.Task | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _worker_stop, _worker_task
+    _worker_stop = asyncio.Event()
+    if settings.ENABLE_SCHEDULE_WORKER:
+        from src.api.jobs import background_worker_loop
+
+        _worker_task = asyncio.create_task(background_worker_loop(_worker_stop))
+    yield
+    if _worker_stop is not None:
+        _worker_stop.set()
+    if _worker_task is not None:
+        try:
+            await asyncio.wait_for(_worker_task, timeout=5)
+        except Exception:
+            _worker_task.cancel()
+
+
 app = FastAPI(
     title="PolkAudit API",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # State for Limiter
@@ -33,7 +59,7 @@ app.add_middleware(CorrelationIdMiddleware)
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Adjust for production
+    allow_origins=["*"],  # Adjust for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,6 +82,7 @@ from src.api.v1.billing import router as billing_router
 from src.api.v1.usage import router as usage_router
 from src.api.v1.schedules import router as schedules_router
 from src.api.admin_db import router as admin_db_router
+from src.api.jobs import router as jobs_router
 from src.api.public.router import router as public_router
 
 # Routers
@@ -65,6 +92,7 @@ app.include_router(reports_router, prefix="/api/v1/reports", tags=["reports"])
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(admin_db_router, prefix="/api/admin/db", tags=["admin-db"])
+app.include_router(jobs_router, prefix="/api/jobs", tags=["jobs"])
 app.include_router(alerts_router, prefix="/api/v1/alerts", tags=["alerts"])
 app.include_router(projects_router, prefix="/api/v1/projects", tags=["projects"])
 app.include_router(scoring_router, prefix="/api/v1/scores", tags=["scoring"])
@@ -80,9 +108,11 @@ app.include_router(usage_router, prefix="/api/v1/usage", tags=["usage"])
 app.include_router(schedules_router, prefix="/api/v1/schedules", tags=["schedules"])
 app.include_router(public_router, prefix="/api/public", tags=["public"])
 
+
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "ok", "app": "PolkAudit Backend"}
+
 
 @app.get("/", tags=["Root"])
 async def root():

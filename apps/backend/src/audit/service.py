@@ -85,3 +85,12 @@ class AuditService:
         await self.db.commit()
         await self.db.refresh(case)
         return case
+
+    async def reopen_case(self, case_id: int):
+        case = await self.db.get(AuditCase, case_id)
+        if not case:
+            raise ValueError("Case not found")
+        case.status = AuditCaseStatus.IN_REVIEW
+        await self.db.commit()
+        await self.db.refresh(case)
+        return case

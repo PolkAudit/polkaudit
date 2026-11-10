@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
+  authDownload,
   authFetch,
   formatBillingInterval,
   formatUsdCents,
@@ -18,6 +19,7 @@ import {
   startCheckout,
   type BillingPlan,
   type CheckoutPlanSlug,
+  type InvoiceInfo,
   type SubscriptionInfo,
 } from '@/lib/api'
 import { Input } from '@/components/ui/input'
@@ -46,6 +48,7 @@ function BillingPageInner() {
   >([])
   const [manualNote, setManualNote] = useState('')
   const [manualBusy, setManualBusy] = useState(false)
+  const [invoices, setInvoices] = useState<InvoiceInfo[]>([])
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -60,7 +63,7 @@ function BillingPageInner() {
     ;(async () => {
       try {
         const load = async () => {
-          const [subscription, planList, paymentList] = await Promise.all([
+          const [subscription, planList, paymentList, invoiceList] = await Promise.all([
             authFetch<SubscriptionInfo>('/api/v1/billing/subscription').catch(() => ({
               plan: { slug: 'free', name: 'Free', price_usd_cents: 0, currency: 'USD' },
             })),
@@ -68,10 +71,12 @@ function BillingPageInner() {
             authFetch<
               { id: number; event_type: string; provider: string; created_at?: string | null }[]
             >('/api/v1/billing/payments').catch(() => []),
+            authFetch<InvoiceInfo[]>('/api/v1/billing/invoices').catch(() => []),
           ])
           setSub(subscription)
           setPlans(planList)
           setPayments(paymentList)
+          setInvoices(invoiceList)
           return subscription
         }
         let subscription = await load()
@@ -293,34 +298,86 @@ function BillingPageInner() {
 
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                Receipts / invoices
+                Invoices
               </h2>
-              <Card className="bg-card border-border p-4 space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  Formal PDF invoices are not generated yet. Payment webhook events below act as
-                  the receipt ledger for now.
-                </p>
-                {payments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No receipt events yet.</p>
+              <Card className="bg-card border-border p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    PDF receipts from Razorpay payments or manual generate. Period ends{' '}
+                    {sub?.ends_at ? new Date(sub.ends_at).toLocaleDateString() : '—'}
+                    {sub?.status === 'past_due' ? ' · past due (grace)' : ''}.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const inv = await authFetch<InvoiceInfo>(
+                          '/api/v1/billing/invoices/generate',
+                          { method: 'POST', body: '{}' }
+                        )
+                        setInvoices((prev) => [inv, ...prev])
+                        toast.success('Invoice generated')
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : 'Generate failed')
+                      }
+                    }}
+                  >
+                    Generate invoice
+                  </Button>
+                </div>
+                {invoices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No invoices yet.</p>
                 ) : (
                   <ul className="space-y-2">
-                    {payments.map((p) => (
+                    {invoices.map((inv) => (
                       <li
-                        key={p.id}
+                        key={inv.id}
                         className="flex flex-wrap items-center justify-between gap-2 text-sm border border-border rounded px-3 py-2"
                       >
-                        <span className="font-medium">
-                          #{p.id} · {p.event_type}
+                        <span>
+                          <span className="font-medium">{inv.invoice_number}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {formatUsdCents(inv.amount_usd_cents)} · {inv.plan_slug || '—'}
+                          </span>
                         </span>
-                        <span className="text-xs text-muted-foreground">
-                          {p.provider}
-                          {p.created_at
-                            ? ` · ${new Date(p.created_at).toLocaleString()}`
-                            : ''}
-                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={async () => {
+                            try {
+                              await authDownload(
+                                `/api/v1/billing/invoices/${inv.id}/pdf`,
+                                `${inv.invoice_number}.pdf`
+                              )
+                            } catch (e) {
+                              toast.error(e instanceof Error ? e.message : 'Download failed')
+                            }
+                          }}
+                        >
+                          PDF
+                        </Button>
                       </li>
                     ))}
                   </ul>
+                )}
+                {payments.length > 0 && (
+                  <div className="pt-2 border-t border-border space-y-2">
+                    <p className="text-xs uppercase text-muted-foreground">Payment events</p>
+                    {payments.slice(0, 5).map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex justify-between text-xs text-muted-foreground"
+                      >
+                        <span>
+                          #{p.id} · {p.event_type}
+                        </span>
+                        <span>
+                          {p.created_at ? new Date(p.created_at).toLocaleString() : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </Card>
             </section>

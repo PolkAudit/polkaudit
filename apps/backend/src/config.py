@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: Optional[str] = Field(None, env="RAZORPAY_KEY_SECRET")
     RAZORPAY_WEBHOOK_SECRET: Optional[str] = Field(None, env="RAZORPAY_WEBHOOK_SECRET")
 
+    # Optional cron auth for /api/jobs/*/cron + in-process schedule worker
+    CRON_SECRET: Optional[str] = Field(None, env="CRON_SECRET")
+    ENABLE_SCHEDULE_WORKER: bool = Field(False, env="ENABLE_SCHEDULE_WORKER")
+    SCHEDULE_WORKER_SECONDS: int = Field(900, env="SCHEDULE_WORKER_SECONDS")
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

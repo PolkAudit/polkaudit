@@ -6,11 +6,11 @@ governance dashboard.
 | Module | Route | Purpose |
 |--------|-------|---------|
 | Home | `/` | Account summary, projects, open dashboard |
-| API keys | `/keys` | Create / revoke project API keys |
-| Billing | `/billing` | USD plans, checkout, manual/DOT notes, receipts stub |
+| API keys | `/keys` | Create / revoke with `read`/`export`/`alerts` scopes |
+| Billing | `/billing` | USD plans, checkout, manual notes, PDF invoices |
 | Usage | `/usage` | Monthly API + export quota |
 | Analytics | `/analytics` | Trends, forecast, governance scores |
-| Schedules | `/schedules` | Automated export schedules |
+| Schedules | `/schedules` | Export schedules + Run now + email delivery |
 | Reports | `/reports` | Generate / download reports |
 | Alerts | `/alerts` | Channels, rules, history |
 | Integrations | `/integrations` | Plugins + test dispatch |

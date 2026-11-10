@@ -13,7 +13,10 @@ from src.models.user import User
 from src.models.billing import PaymentEvent
 from src.services.billing_service import BillingService
 from src.services.razorpay_service import RazorpayService
+from src.services.invoice_service import InvoiceService
 from src.config import settings
+from fastapi.responses import FileResponse
+from pathlib import Path
 
 router = APIRouter()
 allow_admin = RoleChecker(["admin"])
@@ -45,6 +48,7 @@ class SubscriptionResponse(BaseModel):
     status: str
     billing_note: Optional[str] = None
     starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
     plan: Optional[PlanResponse] = None
 
     class Config:
@@ -119,6 +123,7 @@ async def get_my_subscription(
         status=sub.status,
         billing_note=sub.billing_note,
         starts_at=sub.starts_at,
+        ends_at=sub.ends_at,
         plan=PlanResponse.model_validate(plan) if plan else None,
     )
 
@@ -145,6 +150,7 @@ async def admin_set_subscription(
         status=sub.status,
         billing_note=sub.billing_note,
         starts_at=sub.starts_at,
+        ends_at=sub.ends_at,
         plan=PlanResponse.model_validate(plan) if plan else None,
     )
 
@@ -270,6 +276,7 @@ async def add_manual_billing_note(
         status=sub.status,
         billing_note=sub.billing_note,
         starts_at=sub.starts_at,
+        ends_at=sub.ends_at,
         plan=PlanResponse.model_validate(plan) if plan else None,
     )
 
@@ -323,6 +330,7 @@ async def razorpay_webhook(
         paid = rz.parse_paid_link(event)
 
     project_id: Optional[int] = None
+    plan_slug: Optional[str] = None
     if paid:
         try:
             project_id = int(paid["project_id"])
@@ -337,16 +345,82 @@ async def razorpay_webhook(
             )
         except (ValueError, KeyError) as e:
             project_id = None
+            plan_slug = None
             _ = e
 
-    db.add(
-        PaymentEvent(
-            provider="razorpay",
-            event_id=str(event_id) if event_id else None,
-            event_type=event_type,
-            project_id=project_id,
-            payload=event,
-        )
+    pe = PaymentEvent(
+        provider="razorpay",
+        event_id=str(event_id) if event_id else None,
+        event_type=event_type,
+        project_id=project_id,
+        payload=event,
     )
+    db.add(pe)
     await db.commit()
+    await db.refresh(pe)
+    if project_id and event_type in ("payment_link.paid", "payment.captured"):
+        try:
+            await InvoiceService(db).ensure_from_event(pe, plan_slug=plan_slug)
+        except Exception:
+            pass
     return {"status": "ok"}
+
+
+class InvoiceResponse(BaseModel):
+    id: int
+    project_id: int
+    invoice_number: str
+    plan_slug: Optional[str] = None
+    amount_usd_cents: int
+    currency: str
+    status: str
+    issued_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/invoices", response_model=List[InvoiceResponse])
+async def list_invoices(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    project_id: int = Depends(get_current_project),
+):
+    _ = current_user
+    return await InvoiceService(db).list_invoices(project_id)
+
+
+@router.post("/invoices/generate", response_model=InvoiceResponse)
+async def generate_invoice(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    project_id: int = Depends(get_current_project),
+):
+    """Create a receipt from the current subscription plan (manual / DOT / admin)."""
+    _ = current_user
+    service = BillingService(db)
+    plan = await service.get_plan_for_project(project_id)
+    inv = await InvoiceService(db).create_manual(
+        project_id,
+        plan_slug=plan.slug if plan else None,
+        note=f"manual by {current_user.email}",
+    )
+    return inv
+
+
+@router.get("/invoices/{invoice_id}/pdf")
+async def download_invoice_pdf(
+    invoice_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    project_id: int = Depends(get_current_project),
+):
+    _ = current_user
+    inv = await InvoiceService(db).get_invoice(project_id, invoice_id)
+    if not inv or not inv.pdf_path or not Path(inv.pdf_path).exists():
+        raise HTTPException(status_code=404, detail="Invoice PDF not found")
+    return FileResponse(
+        inv.pdf_path,
+        media_type="application/pdf",
+        filename=f"{inv.invoice_number}.pdf",
+    )

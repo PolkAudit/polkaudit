@@ -11,5 +11,7 @@ class ApiKey(Base):
     name = Column(String, nullable=False, default="default")
     key_prefix = Column(String(12), nullable=False, index=True)
     key_hash = Column(String, nullable=False)
+    # Comma-separated: read,export,alerts (default all)
+    scopes = Column(String, nullable=False, default="read,export,alerts")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     revoked_at = Column(DateTime(timezone=True), nullable=True)
